@@ -476,6 +476,8 @@ public partial class ProfilerDock : VBoxContainer
                 censusRequested = true;
                 source.RequestCensus();
             }
+            censusPane.Refresh();
+            resourcePane.Refresh();
         }
         else if (tab == tabSignals)
         {
@@ -484,6 +486,7 @@ public partial class ProfilerDock : VBoxContainer
                 signalsRequested = true;
                 source.RequestSignals();
             }
+            signalPane.Refresh();
         }
         else if (tab == tabEvents)
         {

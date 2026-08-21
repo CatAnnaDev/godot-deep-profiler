@@ -88,6 +88,8 @@ public partial class InputPane : VBoxContainer
     {
         if (Data == null || classes == null)
             return;
+        if (!IsVisibleInTree())
+            return;
         classes.Clear();
         settings.Clear();
         if (!Data.Heap.TryGetValue("input", out Variant inputValue))

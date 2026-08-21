@@ -78,6 +78,7 @@ public partial class ProfilerRuntime : Node
     private double crawlAccumulator;
     private double growthAccumulator;
     private double heapAccumulator;
+    private double lastCrawlMs;
     private int nodesAdded;
     private int nodesRemoved;
     private double overlayMs;
@@ -100,6 +101,7 @@ public partial class ProfilerRuntime : Node
     public int CrawlBudget { get; private set; } = 40000;
     public bool AutoCrawl { get; set; }
     public double AutoCrawlInterval { get; set; } = 5.0;
+    public bool AutoCrawlLight { get; set; } = true;
     public Key OverlayHotkey { get; private set; } = Key.F3;
     public bool TrackInput { get; set; } = true;
 
@@ -331,10 +333,10 @@ public partial class ProfilerRuntime : Node
         if (AutoCrawl)
         {
             crawlAccumulator += delta;
-            if (crawlAccumulator >= AutoCrawlInterval)
+            if (crawlAccumulator >= Math.Max(AutoCrawlInterval, lastCrawlMs * 0.004))
             {
                 crawlAccumulator = 0.0;
-                SendCensus(CrawlBudget);
+                SendCensus(CrawlBudget, AutoCrawlLight);
             }
         }
     }
@@ -646,7 +648,13 @@ public partial class ProfilerRuntime : Node
 
     private void SendCensus(int budget)
     {
-        GDDict census = ObjectGraph.Crawl(budget, 4000, 0);
+        SendCensus(budget, false);
+    }
+
+    private void SendCensus(int budget, bool light)
+    {
+        GDDict census = ObjectGraph.Crawl(budget, 4000, 0, light);
+        lastCrawlMs = census["ms"].AsDouble();
         census["frame"] = frameIndex;
         Send(Protocol.MsgCensus, new GDArray { census });
     }
@@ -779,7 +787,9 @@ public partial class ProfilerRuntime : Node
             case Protocol.CmdAutoCrawl:
                 AutoCrawl = data[1].AsBool();
                 if (data.Count > 2)
-                    AutoCrawlInterval = Math.Clamp(data[2].AsDouble(), 1.0, 120.0);
+                    AutoCrawlInterval = Math.Clamp(data[2].AsDouble(), 0.05, 120.0);
+                if (data.Count > 3)
+                    AutoCrawlLight = data[3].AsBool();
                 crawlAccumulator = 0.0;
                 break;
             case Protocol.CmdCollect:

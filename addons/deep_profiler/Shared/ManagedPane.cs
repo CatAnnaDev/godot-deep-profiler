@@ -100,6 +100,8 @@ public partial class ManagedPane : VBoxContainer
     {
         if (Data == null || types == null)
             return;
+        if (!IsVisibleInTree())
+            return;
         types.Clear();
         stats.Clear();
         GDDict heap = Data.Heap;

@@ -780,6 +780,11 @@ public static class ObjectGraph
 
     public static GDDict Crawl(int budget, int maxResources, int maxSignals)
     {
+        return Crawl(budget, maxResources, maxSignals, false);
+    }
+
+    public static GDDict Crawl(int budget, int maxResources, int maxSignals, bool light)
+    {
         Stopwatch watch = Stopwatch.StartNew();
         Dictionary<string, ClassStat> byClass = new Dictionary<string, ClassStat>(256, StringComparer.Ordinal);
         Dictionary<ulong, List<HolderRef>> holders = new Dictionary<ulong, List<HolderRef>>(256);
@@ -811,12 +816,13 @@ public static class ObjectGraph
             if (!GodotObject.IsInstanceValid(current) || current.GetInstanceId() == ExcludedRoot)
                 continue;
             string className = current.GetClass();
-            long self = SelfBytes(current, out bool estimated);
+            long self = light ? 0L : SelfBytes(current, out bool estimated);
+            bool estimatedLight = light || self > 0;
             totalBytes += self;
             byClass.TryGetValue(className, out ClassStat stat);
             stat.Count++;
             stat.Bytes += self;
-            stat.Estimated |= estimated;
+            stat.Estimated |= !light && estimatedLight;
             byClass[className] = stat;
 
             if (current is Node node)
@@ -832,7 +838,7 @@ public static class ObjectGraph
                         stack.Push(child);
                 }
             }
-            else if (current is Resource resource && resources.Count < maxResources)
+            else if (current is Resource resource && !light && resources.Count < maxResources)
             {
                 resources.Add(resource);
             }
@@ -917,6 +923,7 @@ public static class ObjectGraph
             { "partial", partial },
             { "ms", watch.Elapsed.TotalMilliseconds },
             { "unique_resources", resources.Count },
+            { "light", light },
         };
     }
 

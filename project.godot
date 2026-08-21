@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 [autoload]
 
-DeepProf="*res://addons/deep_profiler/Runtime/ProfilerRuntime.cs"
+DeepProf="*uid://cf7h6hyg2ksm1"
 
 [deep_profiler]
 

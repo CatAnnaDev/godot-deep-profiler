@@ -73,13 +73,14 @@ public sealed class LocalGraphSource : IGraphSource
             runtime.TrackInput = enabled;
     }
 
-    public void SetAutoCrawl(bool enabled, double interval)
+    public void SetAutoCrawl(bool enabled, double interval, bool light)
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;
         if (runtime == null)
             return;
         runtime.AutoCrawl = enabled;
         runtime.AutoCrawlInterval = interval;
+        runtime.AutoCrawlLight = light;
     }
 
     public void RequestInstances(string className)

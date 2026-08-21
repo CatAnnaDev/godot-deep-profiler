@@ -490,13 +490,10 @@ public partial class ProfilerOverlay : CanvasLayer
         }
         else if (tab == tabObjects || tab == tabResources)
         {
-            if (force)
-            {
-                if (!data.Census.ContainsKey("classes"))
-                    source.RequestCensus();
-                censusPane.Refresh();
-                resourcePane.Refresh();
-            }
+            if (force && !data.Census.ContainsKey("classes"))
+                source.RequestCensus();
+            censusPane.Refresh();
+            resourcePane.Refresh();
         }
         else if (tab == tabSignals)
         {

@@ -78,6 +78,8 @@ public partial class SignalPane : VBoxContainer
     {
         if (Data == null || tree == null)
             return;
+        if (!IsVisibleInTree())
+            return;
         tree.Clear();
         GDArray rows = Data.Signals;
         if (rows.Count == 0)

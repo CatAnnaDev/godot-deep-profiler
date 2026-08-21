@@ -23,6 +23,7 @@ public partial class CensusPane : VBoxContainer
     private string selectedClass = string.Empty;
     private CheckButton autoCrawl;
     private OptionButton autoInterval;
+    private CheckButton lightCrawl;
 
     private static readonly Color DimColor = new Color(0.55f, 0.58f, 0.65f);
     private static readonly Color GrowColor = new Color(0.95f, 0.55f, 0.45f);
@@ -57,21 +58,29 @@ public partial class CensusPane : VBoxContainer
         bar.AddChild(clearBaseline);
 
         autoCrawl = new CheckButton { Text = "Auto crawl", TooltipText = "Re-walk the object graph on a timer so the growth columns stay live" };
-        autoCrawl.Toggled += value => Source?.SetAutoCrawl(value, IntervalSeconds());
+        autoCrawl.Toggled += value => Source?.SetAutoCrawl(value, IntervalSeconds(), lightCrawl.ButtonPressed);
         bar.AddChild(autoCrawl);
 
         autoInterval = new OptionButton { TooltipText = "Interval between automatic crawls" };
-        autoInterval.AddItem("2 s", 0);
-        autoInterval.AddItem("5 s", 1);
-        autoInterval.AddItem("15 s", 2);
-        autoInterval.AddItem("30 s", 3);
-        autoInterval.Selected = 1;
-        autoInterval.ItemSelected += _ =>
-        {
-            if (autoCrawl.ButtonPressed)
-                Source?.SetAutoCrawl(true, IntervalSeconds());
-        };
+        autoInterval.AddItem("20 per second", 0);
+        autoInterval.AddItem("0.1 s", 1);
+        autoInterval.AddItem("0.25 s", 2);
+        autoInterval.AddItem("0.5 s", 3);
+        autoInterval.AddItem("1 s", 4);
+        autoInterval.AddItem("2 s", 5);
+        autoInterval.AddItem("5 s", 6);
+        autoInterval.Selected = 2;
+        autoInterval.ItemSelected += _ => PushAutoCrawl();
         bar.AddChild(autoInterval);
+
+        lightCrawl = new CheckButton
+        {
+            Text = "Light",
+            ButtonPressed = true,
+            TooltipText = "Count classes only. Skips memory estimation and the resource table, which makes a fast interval affordable",
+        };
+        lightCrawl.Toggled += _ => PushAutoCrawl();
+        bar.AddChild(lightCrawl);
 
         filter = new LineEdit { PlaceholderText = "filter class", CustomMinimumSize = new Vector2(140, 0) };
         filter.TextChanged += _ => Refresh();
@@ -155,6 +164,8 @@ public partial class CensusPane : VBoxContainer
     {
         if (Data == null || classes == null)
             return;
+        if (!IsVisibleInTree())
+            return;
         classes.Clear();
         if (!Data.Census.TryGetValue("classes", out Variant classesValue))
         {
@@ -196,7 +207,8 @@ public partial class CensusPane : VBoxContainer
             item.SetMetadata(0, className);
         }
 
-        summary.Text = "objects " + Fmt.Count(Data.Census["objects"].AsInt32())
+        bool light = Data.Census.TryGetValue("light", out Variant lightValue) && lightValue.AsBool();
+        summary.Text = (light ? "light crawl   " : string.Empty) + "objects " + Fmt.Count(Data.Census["objects"].AsInt32())
                        + "   nodes " + Fmt.Count(Data.Census["nodes"].AsInt32())
                        + "   estimated " + Fmt.Bytes(Data.Census["bytes"].AsInt64())
                        + "   crawl " + Fmt.Ms(Data.Census["ms"].AsDouble())
@@ -217,9 +229,24 @@ public partial class CensusPane : VBoxContainer
         return sortAscending ? result : -result;
     }
 
+    private void PushAutoCrawl()
+    {
+        if (autoCrawl.ButtonPressed)
+            Source?.SetAutoCrawl(true, IntervalSeconds(), lightCrawl.ButtonPressed);
+    }
+
     private double IntervalSeconds()
     {
-        return autoInterval.Selected switch { 0 => 2.0, 2 => 15.0, 3 => 30.0, _ => 5.0 };
+        return autoInterval.Selected switch
+        {
+            0 => 0.05,
+            1 => 0.1,
+            2 => 0.25,
+            3 => 0.5,
+            4 => 1.0,
+            5 => 2.0,
+            _ => 5.0,
+        };
     }
 
     private static string DeltaText(int delta)

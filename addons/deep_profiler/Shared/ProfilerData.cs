@@ -17,7 +17,7 @@ public interface IGraphSource
     void ResetHeap();
     void SetTrackObjects(bool enabled);
     void SetTrackInput(bool enabled);
-    void SetAutoCrawl(bool enabled, double interval);
+    void SetAutoCrawl(bool enabled, double interval, bool light);
     void RequestAblate(ulong id, int frames);
     void RequestHighlight(ulong id);
     void RequestWatch(int slot, ulong id, string path);

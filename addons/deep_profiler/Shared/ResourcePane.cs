@@ -89,6 +89,8 @@ public partial class ResourcePane : VBoxContainer
     {
         if (Data == null || tree == null)
             return;
+        if (!IsVisibleInTree())
+            return;
         tree.Clear();
         if (!Data.Census.TryGetValue("resources", out Variant resourcesValue))
         {
