@@ -63,6 +63,7 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        using ProfScope scope = Prof.Scope("Player.Input");
         if (@event is InputEventMouseMotion motion && mouseCaptured)
         {
             RotateY(-motion.Relative.X * MouseSensitivity);

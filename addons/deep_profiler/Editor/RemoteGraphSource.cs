@@ -78,6 +78,11 @@ public sealed class RemoteGraphSource : IGraphSource
         debugger?.SendCommand(Protocol.CmdHeapReset);
     }
 
+    public void SetTrackObjects(bool enabled)
+    {
+        debugger?.SendCommand(Protocol.CmdTrackObjects, enabled);
+    }
+
     public void SetAutoCrawl(bool enabled, double interval)
     {
         debugger?.SendCommand(Protocol.CmdAutoCrawl, enabled, interval);

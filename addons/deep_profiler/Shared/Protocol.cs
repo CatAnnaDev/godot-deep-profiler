@@ -43,6 +43,7 @@ public static class Protocol
     public const string CmdInstances = "instances";
     public const string CmdHeapReset = "heapreset";
     public const string CmdAutoCrawl = "autocrawl";
+    public const string CmdTrackObjects = "trackobjects";
 
     public const int WatchSlots = 8;
 
@@ -88,7 +89,11 @@ public static class Protocol
     public const int FPoh = 39;
     public const int FGcPause = 40;
     public const int FGcFrag = 41;
-    public const int FWatch0 = 42;
+    public const int FObjectsAdded = 42;
+    public const int FObjectsProcess = 43;
+    public const int FObjectsPhysics = 44;
+    public const int FObjectsOther = 45;
+    public const int FWatch0 = 46;
 
     public const int Stride = FWatch0 + WatchSlots;
 
@@ -103,7 +108,8 @@ public static class Protocol
         "Audio latency", "GC gen0", "GC gen1", "GC gen2",
         "Scoped", "Nodes added", "Nodes freed", "Threads", "Working set",
         "Overlay", "Time scale", "Nav agents", "Pipelines", "Other",
-        "Gen 0", "Gen 1", "Gen 2", "Large heap", "Pinned heap", "GC pause", "Fragmentation",
+        "Gen 0", "Gen 1", "Gen 2", "Large heap", "Pinned heap", "GC pause", "Fragmentation", "Objects created",
+        "Created in process", "Created in physics", "Created elsewhere",
         "Watch 1", "Watch 2", "Watch 3", "Watch 4",
         "Watch 5", "Watch 6", "Watch 7", "Watch 8",
     };
@@ -120,7 +126,8 @@ public static class Protocol
         FieldUnit.Milliseconds, FieldUnit.Count, FieldUnit.Count, FieldUnit.Count, FieldUnit.Megabytes,
         FieldUnit.Milliseconds, FieldUnit.Ratio, FieldUnit.Count, FieldUnit.Count, FieldUnit.Milliseconds,
         FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes,
-        FieldUnit.Milliseconds, FieldUnit.Megabytes,
+        FieldUnit.Milliseconds, FieldUnit.Megabytes, FieldUnit.Count,
+        FieldUnit.Count, FieldUnit.Count, FieldUnit.Count,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
     };

@@ -5,7 +5,7 @@ namespace DeepProf;
 
 public static class GraphPresets
 {
-    public static readonly string[] Names = { "Time", "Memory", "Render", "Counts", "Physics", "Managed heap", "Watches" };
+    public static readonly string[] Names = { "Time", "Memory", "Render", "Counts", "Physics", "Object churn", "Managed heap", "Watches" };
 
     private static readonly Color[] Palette =
     {
@@ -50,6 +50,15 @@ public static class GraphPresets
                 graph.AddSeries(Protocol.FObjects, Palette[1], "Objects");
                 graph.AddSeries(Protocol.FResources, Palette[2], "Resources");
                 graph.AddSeries(Protocol.FOrphans, Palette[4], "Orphans");
+                graph.AddSeries(Protocol.FObjectsAdded, Palette[5], "Created per frame");
+                break;
+            case 6:
+                graph.Unit = FieldUnit.Count;
+                graph.MinRange = 4f;
+                graph.AddSeries(Protocol.FObjectsAdded, Palette[0], "Created per frame", true);
+                graph.AddSeries(Protocol.FObjectsProcess, Palette[1], "In process");
+                graph.AddSeries(Protocol.FObjectsPhysics, Palette[2], "In physics");
+                graph.AddSeries(Protocol.FObjectsOther, Palette[4], "Elsewhere");
                 break;
             case 4:
                 graph.Unit = FieldUnit.Count;
@@ -59,7 +68,7 @@ public static class GraphPresets
                 graph.AddSeries(Protocol.FPhys3dActive, Palette[2], "3D bodies");
                 graph.AddSeries(Protocol.FPhys3dPairs, Palette[3], "3D pairs");
                 break;
-            case 5:
+            case 7:
                 graph.Unit = FieldUnit.Megabytes;
                 graph.MinRange = 4f;
                 graph.AddSeries(Protocol.FGen0, Palette[0], "Gen 0", true);
@@ -68,7 +77,7 @@ public static class GraphPresets
                 graph.AddSeries(Protocol.FLoh, Palette[3], "Large heap");
                 graph.AddSeries(Protocol.FGcFrag, Palette[4], "Fragmentation");
                 break;
-            case 6:
+            case 8:
                 graph.Unit = FieldUnit.Raw;
                 graph.MinRange = 1f;
                 for (int i = 0; i < Protocol.WatchSlots; i++)

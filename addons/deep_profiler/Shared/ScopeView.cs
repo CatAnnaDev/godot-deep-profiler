@@ -16,6 +16,7 @@ public sealed class ScopeView
     public double[] Total = Array.Empty<double>();
     public double[] Self = Array.Empty<double>();
     public double[] Alloc = Array.Empty<double>();
+    public int[] Objects = Array.Empty<int>();
     public int Frames = 1;
     public long Overflow;
     public string Thread = "main";
@@ -39,6 +40,7 @@ public sealed class ScopeView
         NameId = new int[count];
         Parent = new int[count];
         Calls = new int[count];
+        Objects = new int[count];
         Total = new double[count];
         Self = new double[count];
         Alloc = new double[count];
@@ -83,14 +85,15 @@ public sealed class ScopeView
             return view;
         int[] ints = source["ints"].AsInt32Array();
         double[] floats = source["floats"].AsFloat64Array();
-        if (ints.Length < count * 3 || floats.Length < count * 3)
+        if (ints.Length < count * 4 || floats.Length < count * 3)
             return view;
         view.Allocate(count);
         for (int i = 0; i < count; i++)
         {
-            view.NameId[i] = ints[i * 3];
-            view.Parent[i] = ints[i * 3 + 1];
-            view.Calls[i] = ints[i * 3 + 2];
+            view.NameId[i] = ints[i * 4];
+            view.Parent[i] = ints[i * 4 + 1];
+            view.Calls[i] = ints[i * 4 + 2];
+            view.Objects[i] = ints[i * 4 + 3];
             view.Total[i] = floats[i * 3];
             view.Self[i] = floats[i * 3 + 1];
             view.Alloc[i] = floats[i * 3 + 2];
@@ -118,6 +121,7 @@ public sealed class ScopeView
             view.NameId[i] = node.NameId;
             view.Parent[i] = node.Parent;
             view.Calls[i] = node.Calls;
+            view.Objects[i] = node.Objects;
             view.Total[i] = node.Total * ScopeTree.TicksToMs;
             view.Self[i] = Math.Max(0.0, (node.Total - childTotal) * ScopeTree.TicksToMs);
             view.Alloc[i] = node.Alloc;

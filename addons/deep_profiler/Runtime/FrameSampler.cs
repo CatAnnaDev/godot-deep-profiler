@@ -22,6 +22,7 @@ public sealed class FrameSampler
     private int slowTick;
     private float cachedWorkingSet;
     private float cachedThreads;
+    private float lastObjectCount;
     private readonly float[] cachedHeap = new float[Protocol.Stride];
 
     public FrameSampler(int capacity)
@@ -58,7 +59,8 @@ public sealed class FrameSampler
         return watches[slot].Path;
     }
 
-    public void Sample(double frameMs, double processMs, double physicsMs, double scopeMs, double overlayMs, int nodesAdded, int nodesRemoved, ManagedHeapProbe heap)
+    public void Sample(double frameMs, double processMs, double physicsMs, double scopeMs, double overlayMs,
+        int nodesAdded, int nodesRemoved, int processObjects, int physicsObjects, ManagedHeapProbe heap)
     {
         Array.Clear(sample, 0, sample.Length);
         sample[Protocol.FFrameMs] = (float)frameMs;
@@ -72,6 +74,11 @@ public sealed class FrameSampler
         sample[Protocol.FNodes] = (float)Performance.GetMonitor(Performance.Monitor.ObjectNodeCount);
         sample[Protocol.FOrphans] = (float)Performance.GetMonitor(Performance.Monitor.ObjectOrphanNodeCount);
         sample[Protocol.FObjects] = (float)Performance.GetMonitor(Performance.Monitor.ObjectCount);
+        sample[Protocol.FObjectsAdded] = lastObjectCount > 0f ? Math.Max(0f, sample[Protocol.FObjects] - lastObjectCount) : 0f;
+        lastObjectCount = sample[Protocol.FObjects];
+        sample[Protocol.FObjectsProcess] = processObjects;
+        sample[Protocol.FObjectsPhysics] = physicsObjects;
+        sample[Protocol.FObjectsOther] = Math.Max(0f, sample[Protocol.FObjectsAdded] - processObjects - physicsObjects);
         sample[Protocol.FResources] = (float)Performance.GetMonitor(Performance.Monitor.ObjectResourceCount);
         sample[Protocol.FVideoMem] = (float)(Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / 1048576.0);
         sample[Protocol.FTextureMem] = (float)(Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed) / 1048576.0);

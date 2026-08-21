@@ -20,12 +20,15 @@ public partial class ScopePane : VBoxContainer
     private OptionButton scaleSelect;
     private Label summary;
     private CheckButton flatMode;
+    private CheckButton objectToggle;
+    private int shareColumn = 6;
     private readonly Dictionary<string, bool> collapsed = new Dictionary<string, bool>(64, StringComparer.Ordinal);
     private readonly List<int> childScratch = new List<int>(32);
     private bool perFrame = true;
 
     private static readonly Color DimColor = new Color(0.55f, 0.58f, 0.65f);
     private static readonly Color AllocColor = new Color(0.85f, 0.65f, 0.95f);
+    private static readonly Color ObjectColor = new Color(0.95f, 0.72f, 0.45f);
 
     public override void _Ready()
     {
@@ -52,6 +55,10 @@ public partial class ScopePane : VBoxContainer
         flatMode.Toggled += _ => Refresh();
         bar.AddChild(flatMode);
 
+        objectToggle = new CheckButton { Text = "Objects", ButtonPressed = true, TooltipText = "Count the engine objects created inside each scope" };
+        objectToggle.Toggled += value => Source?.SetTrackObjects(value);
+        bar.AddChild(objectToggle);
+
         Button capture = new Button { Text = "Capture frame", TooltipText = "Ask the game for the full scope tree of the next frame" };
         capture.Pressed += () => Source?.RequestFrameCapture();
         bar.AddChild(capture);
@@ -67,9 +74,10 @@ public partial class ScopePane : VBoxContainer
         HSplitContainer split = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         AddChild(split);
 
+        shareColumn = Compact ? -1 : 6;
         tree = new Tree
         {
-            Columns = 6,
+            Columns = Compact ? 6 : 7,
             ColumnTitlesVisible = true,
             HideRoot = true,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
@@ -80,13 +88,15 @@ public partial class ScopePane : VBoxContainer
         tree.SetColumnTitle(2, "Self");
         tree.SetColumnTitle(3, "Calls");
         tree.SetColumnTitle(4, "Alloc");
-        tree.SetColumnTitle(5, "Share");
+        tree.SetColumnTitle(5, "Objects");
+        if (shareColumn >= 0)
+            tree.SetColumnTitle(shareColumn, "Share");
         tree.SetColumnExpandRatio(0, 6);
-        tree.SetColumnCustomMinimumWidth(0, 150);
-        for (int i = 1; i <= 5; i++)
+        tree.SetColumnCustomMinimumWidth(0, Compact ? 104 : 150);
+        for (int i = 1; i < tree.Columns; i++)
         {
             tree.SetColumnExpandRatio(i, 1);
-            tree.SetColumnCustomMinimumWidth(i, 58);
+            tree.SetColumnCustomMinimumWidth(i, Compact ? (i <= 2 ? 58 : 46) : 62);
         }
         tree.ItemCollapsed += OnCollapsed;
         split.AddChild(tree);
@@ -147,18 +157,21 @@ public partial class ScopePane : VBoxContainer
 
         if (flatMode.ButtonPressed)
         {
-            Dictionary<int, (double Total, double Self, double Alloc, int Calls)> merged = new Dictionary<int, (double, double, double, int)>(view.Count);
+            Dictionary<int, (double Total, double Self, double Alloc, int Calls, int Objects)> merged = new Dictionary<int, (double, double, double, int, int)>(view.Count);
             for (int i = 1; i < view.Count; i++)
             {
-                merged.TryGetValue(view.NameId[i], out (double Total, double Self, double Alloc, int Calls) entry);
-                merged[view.NameId[i]] = (entry.Total + view.Total[i], entry.Self + view.Self[i], entry.Alloc + view.Alloc[i], entry.Calls + view.Calls[i]);
+                merged.TryGetValue(view.NameId[i], out (double Total, double Self, double Alloc, int Calls, int Objects) entry);
+                merged[view.NameId[i]] = (entry.Total + view.Total[i], entry.Self + view.Self[i], entry.Alloc + view.Alloc[i],
+                    entry.Calls + view.Calls[i], entry.Objects + view.Objects[i]);
             }
-            List<KeyValuePair<int, (double Total, double Self, double Alloc, int Calls)>> rows = new List<KeyValuePair<int, (double, double, double, int)>>(merged);
+            List<KeyValuePair<int, (double Total, double Self, double Alloc, int Calls, int Objects)>> rows =
+                new List<KeyValuePair<int, (double, double, double, int, int)>>(merged);
             rows.Sort((a, b) => b.Value.Self.CompareTo(a.Value.Self));
-            foreach (KeyValuePair<int, (double Total, double Self, double Alloc, int Calls)> row in rows)
+            foreach (KeyValuePair<int, (double Total, double Self, double Alloc, int Calls, int Objects)> row in rows)
             {
                 TreeItem item = tree.CreateItem(root);
-                FillRow(item, view.Resolver(row.Key), row.Value.Total, row.Value.Self, row.Value.Calls, row.Value.Alloc, rootTotal, frames);
+                FillRow(item, view.Resolver(row.Key), row.Value.Total, row.Value.Self, row.Value.Calls, row.Value.Alloc,
+                    row.Value.Objects, rootTotal, frames);
             }
             return;
         }
@@ -170,7 +183,7 @@ public partial class ScopePane : VBoxContainer
             (int node, TreeItem parent) = stack.Pop();
             TreeItem item = tree.CreateItem(parent);
             string name = view.NameOf(node);
-            FillRow(item, name, view.Total[node], view.Self[node], view.Calls[node], view.Alloc[node], rootTotal, frames);
+            FillRow(item, name, view.Total[node], view.Self[node], view.Calls[node], view.Alloc[node], view.Objects[node], rootTotal, frames);
             if (collapsed.TryGetValue(name, out bool state))
                 item.Collapsed = state;
             childScratch.Clear();
@@ -182,20 +195,25 @@ public partial class ScopePane : VBoxContainer
         }
     }
 
-    private void FillRow(TreeItem item, string name, double total, double self, int calls, double alloc, double rootTotal, int frames)
+    private void FillRow(TreeItem item, string name, double total, double self, int calls, double alloc, int objects, double rootTotal, int frames)
     {
         item.SetText(0, name);
         item.SetText(1, Fmt.Ms(total / frames));
         item.SetText(2, Fmt.Ms(self / frames));
         item.SetText(3, Fmt.Count(calls / (double)frames));
         item.SetText(4, alloc > 0.0 ? Fmt.Bytes(alloc / frames) : string.Empty);
-        item.SetText(5, Fmt.Percent(total / rootTotal));
-        for (int i = 1; i <= 5; i++)
+        item.SetText(5, objects > 0 ? Fmt.Count(objects / (double)frames) : string.Empty);
+        if (shareColumn >= 0)
+        {
+            item.SetText(shareColumn, Fmt.Percent(total / rootTotal));
+            item.SetCustomColor(shareColumn, DimColor);
+        }
+        for (int i = 1; i < tree.Columns; i++)
             item.SetTextAlignment(i, HorizontalAlignment.Right);
         item.SetCustomColor(2, Fmt.HeatColor(self / Math.Max(0.0001, rootTotal) * 4.0));
         item.SetCustomColor(3, DimColor);
         item.SetCustomColor(4, AllocColor);
-        item.SetCustomColor(5, DimColor);
+        item.SetCustomColor(5, objects > 0 ? ObjectColor : DimColor);
     }
 
     private void OnCollapsed(TreeItem item)

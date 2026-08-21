@@ -68,6 +68,8 @@ public struct ScopeNode
 	public long AllocStart;
 	public long Total;
 	public long Alloc;
+	public int ObjectStart;
+	public int Objects;
 }
 
 public sealed class ScopeTree
@@ -119,6 +121,8 @@ public sealed class ScopeTree
 		node.AllocStart = 0;
 		node.Total = 0;
 		node.Alloc = 0;
+		node.ObjectStart = 0;
+		node.Objects = 0;
 		if (parent >= 0)
 		{
 			ref ScopeNode p = ref Nodes[parent];
@@ -142,7 +146,7 @@ public sealed class ScopeTree
 		return NewNode(nameId, parent);
 	}
 
-	public void Begin(int nameId, bool trackAlloc)
+	public void Begin(int nameId, bool trackAlloc, bool trackObjects)
 	{
 		if (Count == 0)
 			Reset(nameId);
@@ -153,11 +157,12 @@ public sealed class ScopeTree
 		{
 			node.Start = Stopwatch.GetTimestamp();
 			node.AllocStart = trackAlloc ? GC.GetAllocatedBytesForCurrentThread() : 0;
+			node.ObjectStart = trackObjects ? ObjectCount() : 0;
 		}
 		Current = index;
 	}
 
-	public void End(bool trackAlloc)
+	public void End(bool trackAlloc, bool trackObjects)
 	{
 		int index = Current;
 		if (index <= 0 && Count <= 1)
@@ -168,17 +173,24 @@ public sealed class ScopeTree
 			node.Total += Stopwatch.GetTimestamp() - node.Start;
 			if (trackAlloc)
 				node.Alloc += GC.GetAllocatedBytesForCurrentThread() - node.AllocStart;
+			if (trackObjects)
+				node.Objects += Math.Max(0, ObjectCount() - node.ObjectStart);
 		}
 		Current = node.Parent >= 0 ? node.Parent : 0;
 	}
 
-	public void CloseAll(bool trackAlloc)
+	private static int ObjectCount()
+	{
+		return (int)Performance.GetMonitor(Performance.Monitor.ObjectCount);
+	}
+
+	public void CloseAll(bool trackAlloc, bool trackObjects)
 	{
 		int guard = 0;
 		while (Current > 0 && guard++ < MaxNodes)
-			End(trackAlloc);
+			End(trackAlloc, trackObjects);
 		if (Count > 0 && Nodes[0].Open > 0)
-			End(trackAlloc);
+			End(trackAlloc, trackObjects);
 	}
 
 	public void StampRoot(long ticks, int calls)
@@ -206,6 +218,7 @@ public sealed class ScopeTree
 		dst.Calls += src.Calls;
 		dst.Total += src.Total;
 		dst.Alloc += src.Alloc;
+		dst.Objects += src.Objects;
 		for (int child = src.FirstChild; child >= 0; child = Nodes[child].NextSibling)
 		{
 			int mapped = destination.FindOrAdd(target, Nodes[child].NameId);
@@ -227,7 +240,7 @@ public sealed class ScopeTree
 	public Godot.Collections.Dictionary Serialize(string threadName, string kind, int frames)
 	{
 		int n = Count;
-		int[] ints = new int[n * 3];
+		int[] ints = new int[n * 4];
 		double[] floats = new double[n * 3];
 		for (int i = 0; i < n; i++)
 		{
@@ -235,9 +248,10 @@ public sealed class ScopeTree
 			long childTotal = 0;
 			for (int child = node.FirstChild; child >= 0; child = Nodes[child].NextSibling)
 				childTotal += Nodes[child].Total;
-			ints[i * 3] = node.NameId;
-			ints[i * 3 + 1] = node.Parent;
-			ints[i * 3 + 2] = node.Calls;
+			ints[i * 4] = node.NameId;
+			ints[i * 4 + 1] = node.Parent;
+			ints[i * 4 + 2] = node.Calls;
+			ints[i * 4 + 3] = node.Objects;
 			floats[i * 3] = node.Total * TicksToMs;
 			floats[i * 3 + 1] = Math.Max(0.0, (node.Total - childTotal) * TicksToMs);
 			floats[i * 3 + 2] = node.Alloc;

@@ -58,6 +58,10 @@ public partial class ProfilerRuntime : Node
     private long processStartTicks;
     private long physicsStartTicks;
     private long physicsTicks;
+    private int processObjectStart;
+    private int physicsObjectStart;
+    private int processObjects;
+    private int physicsObjects;
     private long processTicks;
     private long frameIndex;
     private long lastSentFrame;
@@ -66,6 +70,7 @@ public partial class ProfilerRuntime : Node
     private double sendInterval = 0.1;
     private double crawlAccumulator;
     private double growthAccumulator;
+    private double heapAccumulator;
     private int nodesAdded;
     private int nodesRemoved;
     private double overlayMs;
@@ -152,6 +157,7 @@ public partial class ProfilerRuntime : Node
         Prof.Enabled = (bool)GetSetting("deep_profiler/runtime/enabled", true);
         Prof.CaptureScopes = (bool)GetSetting("deep_profiler/runtime/capture_scopes", true);
         Prof.TrackAllocations = (bool)GetSetting("deep_profiler/runtime/track_allocations", true);
+        Prof.TrackObjects = (bool)GetSetting("deep_profiler/runtime/track_objects", true);
         HistoryFrames = Math.Clamp((int)GetSetting("deep_profiler/runtime/history_frames", 1800), 120, 60000);
         SpikeMs = (double)GetSetting("deep_profiler/runtime/spike_ms", 33.0);
         CrawlBudget = Math.Clamp((int)GetSetting("deep_profiler/crawl/max_objects", 40000), 512, 400000);
@@ -172,18 +178,28 @@ public partial class ProfilerRuntime : Node
     {
         OpenFrame();
         processStartTicks = Stopwatch.GetTimestamp();
+        processObjectStart = ObjectCount();
     }
 
     public override void _PhysicsProcess(double delta)
     {
         OpenFrame();
         physicsStartTicks = Stopwatch.GetTimestamp();
+        physicsObjectStart = ObjectCount();
+    }
+
+    private static int ObjectCount()
+    {
+        return (int)Performance.GetMonitor(Performance.Monitor.ObjectCount);
     }
 
     public void ClosePhysicsStep()
     {
         if (physicsStartTicks > 0)
+        {
             physicsTicks += Stopwatch.GetTimestamp() - physicsStartTicks;
+            physicsObjects += Math.Max(0, ObjectCount() - physicsObjectStart);
+        }
         physicsStartTicks = 0;
     }
 
@@ -194,6 +210,7 @@ public partial class ProfilerRuntime : Node
         frameOpen = false;
         long now = Stopwatch.GetTimestamp();
         processTicks = processStartTicks > 0 ? now - processStartTicks : 0;
+        processObjects = processStartTicks > 0 ? Math.Max(0, ObjectCount() - processObjectStart) : 0;
         double frameMs = (now - (frameEndTicks > 0 ? frameEndTicks : frameStartTicks)) * ScopeTree.TicksToMs;
         frameEndTicks = now;
         EndFrame(frameMs);
@@ -208,6 +225,8 @@ public partial class ProfilerRuntime : Node
         physicsTicks = 0;
         processTicks = 0;
         processStartTicks = 0;
+        physicsObjects = 0;
+        processObjects = 0;
         frameIndex++;
         Prof.CurrentFrame = frameIndex;
         if (mainContext != null && Prof.CaptureScopes)
@@ -224,7 +243,7 @@ public partial class ProfilerRuntime : Node
         if (mainContext != null && Prof.CaptureScopes)
         {
             ScopeTree live = mainContext.Live;
-            live.CloseAll(Prof.TrackAllocations);
+            live.CloseAll(Prof.TrackAllocations, Prof.TrackObjects);
             live.StampRoot((long)(frameMs / ScopeTree.TicksToMs), 1);
             if (live.Count > 0)
             {
@@ -251,7 +270,7 @@ public partial class ProfilerRuntime : Node
         if (!paused)
         {
             Sampler.Sample(frameMs, processTicks * ScopeTree.TicksToMs, physicsTicks * ScopeTree.TicksToMs,
-                scopeMs, overlayMs, nodesAdded, nodesRemoved, heap);
+                scopeMs, overlayMs, nodesAdded, nodesRemoved, processObjects, physicsObjects, heap);
             TrackGrowth(delta);
         }
 
@@ -277,6 +296,13 @@ public partial class ProfilerRuntime : Node
         else
         {
             overlayMs = 0.0;
+        }
+
+        heapAccumulator += delta;
+        if (connected && handshake && heapAccumulator >= 1.0)
+        {
+            heapAccumulator = 0.0;
+            SendHeap();
         }
 
         sendAccumulator += delta;
@@ -388,7 +414,6 @@ public partial class ProfilerRuntime : Node
         SendNames();
         SendFrames();
         SendScopes();
-        SendHeap();
         SendEvents();
     }
 
@@ -613,6 +638,9 @@ public partial class ProfilerRuntime : Node
                 break;
             case Protocol.CmdScopes:
                 Prof.CaptureScopes = data[1].AsBool();
+                break;
+            case Protocol.CmdTrackObjects:
+                Prof.TrackObjects = data[1].AsBool();
                 break;
             case Protocol.CmdTree:
             {

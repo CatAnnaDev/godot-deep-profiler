@@ -70,6 +70,7 @@ public static class Prof
 	public static bool Enabled = true;
 	public static bool CaptureScopes = true;
 	public static bool TrackAllocations = true;
+	public static bool TrackObjects = true;
 
 	internal static readonly List<ThreadContext> Contexts = new List<ThreadContext>(8);
 	internal static readonly object ContextsLock = new object();
@@ -134,7 +135,7 @@ public static class Prof
 		if (context == null || context.Depth == 0)
 			return;
 		context.Depth--;
-		context.Live.End(TrackAllocations);
+		context.Live.End(TrackAllocations, TrackObjects);
 	}
 
 	private static void BeginId(int nameId)
@@ -143,7 +144,7 @@ public static class Prof
 		if (!context.IsMain && context.Depth == 0 && Volatile.Read(ref context.PublishRequested))
 			PublishWorker(context);
 		context.Depth++;
-		context.Live.Begin(nameId, TrackAllocations);
+		context.Live.Begin(nameId, TrackAllocations, TrackObjects);
 	}
 
 	public static void ThreadTick()
@@ -155,7 +156,7 @@ public static class Prof
 
 	private static void PublishWorker(ThreadContext context)
 	{
-		context.Live.CloseAll(TrackAllocations);
+		context.Live.CloseAll(TrackAllocations, TrackObjects);
 		lock (context.PublishLock)
 		{
 			context.Published.CopyFrom(context.Live);

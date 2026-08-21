@@ -57,6 +57,11 @@ public sealed class LocalGraphSource : IGraphSource
         overlay?.Notify("allocation sampling restarted");
     }
 
+    public void SetTrackObjects(bool enabled)
+    {
+        Prof.TrackObjects = enabled;
+    }
+
     public void SetAutoCrawl(bool enabled, double interval)
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;
