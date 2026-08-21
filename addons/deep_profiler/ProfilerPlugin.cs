@@ -8,6 +8,7 @@ public partial class ProfilerPlugin : EditorPlugin
 {
     public const string AutoloadName = "DeepProf";
     public const string RuntimePath = "res://addons/deep_profiler/Runtime/ProfilerRuntime.cs";
+    public const string HostName = "DeepProfiler";
 
     private ProfilerDock dock;
     private EditorDock host;
@@ -16,13 +17,14 @@ public partial class ProfilerPlugin : EditorPlugin
     public override void _EnterTree()
     {
         DefineSettings();
+        DropStaleDock();
         ProfilerData data = new ProfilerData();
         debugger = new ProfilerDebuggerPlugin { Data = data };
         AddDebuggerPlugin(debugger);
         dock = new ProfilerDock { Data = data, Debugger = debugger, Name = "DeepProfilerDock" };
         host = new EditorDock
         {
-            Name = "DeepProfiler",
+            Name = HostName,
             Title = "Deep Profiler",
             DefaultSlot = EditorDock.DockSlot.Bottom,
             LayoutKey = "deep_profiler",
@@ -34,19 +36,35 @@ public partial class ProfilerPlugin : EditorPlugin
 
     public override void _ExitTree()
     {
-        if (host != null)
+        EditorDock existing = host ?? FindHost();
+        if (existing != null)
         {
-            RemoveDock(host);
-            host.QueueFree();
-            host = null;
-            dock = null;
+            RemoveDock(existing);
+            existing.QueueFree();
         }
+        host = null;
+        dock = null;
         if (debugger != null)
         {
             debugger.SendCommand(Protocol.CmdStop);
             RemoveDebuggerPlugin(debugger);
             debugger = null;
         }
+    }
+
+    private void DropStaleDock()
+    {
+        EditorDock stale = FindHost();
+        if (stale == null)
+            return;
+        RemoveDock(stale);
+        stale.QueueFree();
+    }
+
+    private static EditorDock FindHost()
+    {
+        Control baseControl = EditorInterface.Singleton?.GetBaseControl();
+        return baseControl?.FindChild(HostName, true, false) as EditorDock;
     }
 
     public override void _EnablePlugin()

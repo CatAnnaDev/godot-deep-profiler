@@ -96,6 +96,11 @@ public partial class SceneTreePane : VBoxContainer
 
     public override void _Process(double delta)
     {
+        if (tree == null || filter == null)
+        {
+            SetProcess(false);
+            return;
+        }
         if (!autoRefresh || Source == null || !Source.Live)
             return;
         refreshTimer += delta;

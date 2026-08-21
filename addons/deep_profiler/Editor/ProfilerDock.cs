@@ -55,13 +55,23 @@ public partial class ProfilerDock : VBoxContainer
     private bool sceneRequested;
     private bool censusRequested;
     private bool signalsRequested;
+    private bool recovering;
 
     private static readonly Color Dim = new Color(0.55f, 0.58f, 0.65f);
     private static readonly Color Online = new Color(0.35f, 0.85f, 0.45f);
     private static readonly Color Offline = new Color(0.55f, 0.58f, 0.65f);
 
+    private const string DebuggerMeta = "deepprof_debugger";
+
     public override void _Ready()
     {
+        Build();
+    }
+
+    private void Build()
+    {
+        if (Debugger != null)
+            SetMeta(DebuggerMeta, Debugger);
         CustomMinimumSize = new Vector2(0, 340);
         SizeFlagsVertical = SizeFlags.ExpandFill;
         AddThemeConstantOverride("separation", 3);
@@ -401,6 +411,11 @@ public partial class ProfilerDock : VBoxContainer
 
     public override void _Process(double delta)
     {
+        if (source == null || tabs == null || statusLabel == null)
+        {
+            Recover();
+            return;
+        }
         if (Debugger != null && Debugger.IsRunning && (Data == null || !Data.Connected))
         {
             greetTimer += delta;
@@ -460,6 +475,38 @@ public partial class ProfilerDock : VBoxContainer
         {
             eventPane.Refresh();
         }
+    }
+
+    private void Recover()
+    {
+        if (recovering || !HasMeta(DebuggerMeta))
+        {
+            SetProcess(false);
+            Visible = false;
+            return;
+        }
+        recovering = true;
+        Debugger = GetMeta(DebuggerMeta).As<GodotObject>() as ProfilerDebuggerPlugin;
+        if (Debugger == null)
+        {
+            SetProcess(false);
+            Visible = false;
+            return;
+        }
+        foreach (Node child in GetChildren())
+        {
+            RemoveChild(child);
+            child.QueueFree();
+        }
+        Data = new ProfilerData();
+        Debugger.Data = Data;
+        costRows.Clear();
+        pinnedFrame = -1;
+        sceneRequested = false;
+        censusRequested = false;
+        signalsRequested = false;
+        Build();
+        recovering = false;
     }
 
     private void RefreshOverview()
