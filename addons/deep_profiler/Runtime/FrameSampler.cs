@@ -60,7 +60,8 @@ public sealed class FrameSampler
     }
 
     public void Sample(double frameMs, double processMs, double physicsMs, double scopeMs, double overlayMs,
-        int nodesAdded, int nodesRemoved, int processObjects, int physicsObjects, ManagedHeapProbe heap)
+        int nodesAdded, int nodesRemoved, int processObjects, int physicsObjects,
+        int inputEvents, int inputObjects, ManagedHeapProbe heap)
     {
         Array.Clear(sample, 0, sample.Length);
         sample[Protocol.FFrameMs] = (float)frameMs;
@@ -76,6 +77,8 @@ public sealed class FrameSampler
         sample[Protocol.FObjects] = (float)Performance.GetMonitor(Performance.Monitor.ObjectCount);
         sample[Protocol.FObjectsAdded] = lastObjectCount > 0f ? Math.Max(0f, sample[Protocol.FObjects] - lastObjectCount) : 0f;
         lastObjectCount = sample[Protocol.FObjects];
+        sample[Protocol.FInputEvents] = inputEvents;
+        sample[Protocol.FObjectsInput] = inputObjects;
         sample[Protocol.FObjectsProcess] = processObjects;
         sample[Protocol.FObjectsPhysics] = physicsObjects;
         sample[Protocol.FObjectsOther] = Math.Max(0f, sample[Protocol.FObjectsAdded] - processObjects - physicsObjects);

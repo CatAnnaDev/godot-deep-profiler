@@ -30,10 +30,12 @@ public partial class ProfilerOverlay : CanvasLayer
     private SignalPane signalPane;
     private EventPane eventPane;
     private ManagedPane heapPane;
+    private InputPane inputPane;
     private int tabStats;
     private int tabGraph;
     private int tabScopes;
     private int tabHeap;
+    private int tabInput;
     private int tabTree;
     private int tabObjects;
     private int tabResources;
@@ -120,6 +122,7 @@ public partial class ProfilerOverlay : CanvasLayer
         BuildGraphTab();
         BuildScopesTab();
         BuildHeapTab();
+        BuildInputTab();
         BuildTreeTab();
         BuildObjectsTab();
         BuildResourcesTab();
@@ -276,6 +279,13 @@ public partial class ProfilerOverlay : CanvasLayer
         heapPane = new ManagedPane { Name = "Heap", Data = data, Source = source };
         tabs.AddChild(heapPane);
         tabHeap = heapPane.GetIndex();
+    }
+
+    private void BuildInputTab()
+    {
+        inputPane = new InputPane { Name = "Input", Data = data, Source = source };
+        tabs.AddChild(inputPane);
+        tabInput = inputPane.GetIndex();
     }
 
     private void BuildTreeTab()
@@ -459,10 +469,19 @@ public partial class ProfilerOverlay : CanvasLayer
         {
             scopePane.Refresh();
         }
-        else if (tab == tabHeap)
+        else if (tab == tabHeap || tab == tabInput)
         {
-            data.Heap = ProfilerRuntime.Instance != null ? ProfilerRuntime.Instance.HeapSnapshot(80) : data.Heap;
-            heapPane.Refresh();
+            ProfilerRuntime live = ProfilerRuntime.Instance;
+            if (live != null)
+            {
+                GDDict snapshot = live.HeapSnapshot(80);
+                snapshot["input"] = live.InputSnapshot();
+                data.Heap = snapshot;
+            }
+            if (tab == tabHeap)
+                heapPane.Refresh();
+            else
+                inputPane.Refresh();
         }
         else if (tab == tabTree)
         {

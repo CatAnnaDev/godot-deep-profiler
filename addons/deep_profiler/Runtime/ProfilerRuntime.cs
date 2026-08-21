@@ -62,6 +62,13 @@ public partial class ProfilerRuntime : Node
     private int physicsObjectStart;
     private int processObjects;
     private int physicsObjects;
+    private int inputEvents;
+    private int inputObjectStart;
+    private int inputObjectPeak;
+    private readonly Dictionary<string, int> inputClasses = new Dictionary<string, int>(16, StringComparer.Ordinal);
+    private readonly Dictionary<string, int> inputWindow = new Dictionary<string, int>(16, StringComparer.Ordinal);
+    private int inputWindowEvents;
+    private int inputWindowPeak;
     private long processTicks;
     private long frameIndex;
     private long lastSentFrame;
@@ -94,6 +101,7 @@ public partial class ProfilerRuntime : Node
     public bool AutoCrawl { get; set; }
     public double AutoCrawlInterval { get; set; } = 5.0;
     public Key OverlayHotkey { get; private set; } = Key.F3;
+    public bool TrackInput { get; set; } = true;
 
     public override void _EnterTree()
     {
@@ -271,7 +279,12 @@ public partial class ProfilerRuntime : Node
         if (!paused)
         {
             Sampler.Sample(frameMs, processTicks * ScopeTree.TicksToMs, physicsTicks * ScopeTree.TicksToMs,
-                scopeMs, overlayMs, nodesAdded, nodesRemoved, processObjects, physicsObjects, heap);
+                scopeMs, overlayMs, nodesAdded, nodesRemoved, processObjects, physicsObjects,
+                inputEvents, Math.Max(0, inputObjectPeak - inputObjectStart), heap);
+            AccumulateInput();
+            inputEvents = 0;
+            inputObjectStart = 0;
+            inputObjectPeak = 0;
             TrackGrowth(delta);
         }
 
@@ -324,6 +337,62 @@ public partial class ProfilerRuntime : Node
                 SendCensus(CrawlBudget);
             }
         }
+    }
+
+    private void AccumulateInput()
+    {
+        inputWindowEvents += inputEvents;
+        int peak = Math.Max(0, inputObjectPeak - inputObjectStart);
+        if (peak > inputWindowPeak)
+            inputWindowPeak = peak;
+        foreach (KeyValuePair<string, int> pair in inputClasses)
+        {
+            inputWindow.TryGetValue(pair.Key, out int seen);
+            inputWindow[pair.Key] = seen + pair.Value;
+        }
+        inputClasses.Clear();
+    }
+
+    public GDDict InputSnapshot()
+    {
+        GDArray rows = new GDArray();
+        foreach (KeyValuePair<string, int> pair in inputWindow)
+            rows.Add(new GDDict { { "n", pair.Key }, { "count", pair.Value } });
+        GDDict result = new GDDict
+        {
+            { "classes", rows },
+            { "events", inputWindowEvents },
+            { "peak", inputWindowPeak },
+            { "tracking", TrackInput },
+            { "accumulated", Input.UseAccumulatedInput },
+            { "agile", ProjectSettings.GetSetting("input_devices/buffering/agile_event_flushing", false).AsBool() },
+            { "viewports", CountViewports() },
+        };
+        inputWindow.Clear();
+        inputWindowEvents = 0;
+        inputWindowPeak = 0;
+        return result;
+    }
+
+    private int CountViewports()
+    {
+        SceneTree tree = GetTree();
+        return tree != null ? CountViewports(tree.Root) : 0;
+    }
+
+    private static int CountViewports(Node node)
+    {
+        if (node.GetInstanceId() == ObjectGraph.ExcludedRoot)
+            return 0;
+        int count = 0;
+        if (node is Window window)
+            count = window.Visible ? 1 : 0;
+        else if (node is SubViewport)
+            count = 1;
+        int children = node.GetChildCount(true);
+        for (int i = 0; i < children; i++)
+            count += CountViewports(node.GetChild(i, true));
+        return count;
     }
 
     private void TrackGrowth(double delta)
@@ -559,7 +628,9 @@ public partial class ProfilerRuntime : Node
 
     private void SendHeap()
     {
-        Send(Protocol.MsgHeap, new GDArray { heap.Snapshot(80) });
+        GDDict payload = heap.Snapshot(80);
+        payload["input"] = InputSnapshot();
+        Send(Protocol.MsgHeap, new GDArray { payload });
     }
 
     private void SendEvents()
@@ -642,6 +713,9 @@ public partial class ProfilerRuntime : Node
                 break;
             case Protocol.CmdTrackObjects:
                 Prof.TrackObjects = data[1].AsBool();
+                break;
+            case Protocol.CmdTrackInput:
+                TrackInput = data[1].AsBool();
                 break;
             case Protocol.CmdTree:
             {
@@ -774,6 +848,23 @@ public partial class ProfilerRuntime : Node
 
     public override void _Input(InputEvent @event)
     {
+        if (TrackInput && @event != null)
+        {
+            int count = ObjectCount();
+            if (inputEvents == 0)
+            {
+                inputObjectStart = count;
+                inputObjectPeak = count;
+            }
+            else if (count > inputObjectPeak)
+            {
+                inputObjectPeak = count;
+            }
+            inputEvents++;
+            string className = @event.GetType().Name;
+            inputClasses.TryGetValue(className, out int seen);
+            inputClasses[className] = seen + 1;
+        }
         if (@event is not InputEventKey key || !key.Pressed || key.Echo)
             return;
         if (key.Keycode != OverlayHotkey)

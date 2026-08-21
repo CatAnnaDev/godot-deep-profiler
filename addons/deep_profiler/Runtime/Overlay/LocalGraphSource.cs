@@ -66,6 +66,13 @@ public sealed class LocalGraphSource : IGraphSource
         Prof.TrackObjects = enabled;
     }
 
+    public void SetTrackInput(bool enabled)
+    {
+        ProfilerRuntime runtime = ProfilerRuntime.Instance;
+        if (runtime != null)
+            runtime.TrackInput = enabled;
+    }
+
     public void SetAutoCrawl(bool enabled, double interval)
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;

@@ -59,6 +59,8 @@ public static class GraphPresets
                 graph.AddSeries(Protocol.FObjectsProcess, Palette[1], "In process");
                 graph.AddSeries(Protocol.FObjectsPhysics, Palette[2], "In physics");
                 graph.AddSeries(Protocol.FObjectsOther, Palette[4], "Elsewhere");
+                graph.AddSeries(Protocol.FObjectsInput, Palette[5], "During input");
+                graph.AddSeries(Protocol.FInputEvents, Palette[6], "Input events");
                 break;
             case 4:
                 graph.Unit = FieldUnit.Count;

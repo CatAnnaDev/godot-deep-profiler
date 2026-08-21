@@ -44,6 +44,7 @@ public static class Protocol
     public const string CmdHeapReset = "heapreset";
     public const string CmdAutoCrawl = "autocrawl";
     public const string CmdTrackObjects = "trackobjects";
+    public const string CmdTrackInput = "trackinput";
 
     public const int WatchSlots = 8;
 
@@ -93,7 +94,9 @@ public static class Protocol
     public const int FObjectsProcess = 43;
     public const int FObjectsPhysics = 44;
     public const int FObjectsOther = 45;
-    public const int FWatch0 = 46;
+    public const int FInputEvents = 46;
+    public const int FObjectsInput = 47;
+    public const int FWatch0 = 48;
 
     public const int Stride = FWatch0 + WatchSlots;
 
@@ -110,6 +113,7 @@ public static class Protocol
         "Overlay", "Time scale", "Nav agents", "Pipelines", "Other",
         "Gen 0", "Gen 1", "Gen 2", "Large heap", "Pinned heap", "GC pause", "Fragmentation", "Objects created",
         "Created in process", "Created in physics", "Created elsewhere",
+        "Input events", "Objects during input",
         "Watch 1", "Watch 2", "Watch 3", "Watch 4",
         "Watch 5", "Watch 6", "Watch 7", "Watch 8",
     };
@@ -128,6 +132,7 @@ public static class Protocol
         FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes,
         FieldUnit.Milliseconds, FieldUnit.Megabytes, FieldUnit.Count,
         FieldUnit.Count, FieldUnit.Count, FieldUnit.Count,
+        FieldUnit.Count, FieldUnit.Count,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
     };

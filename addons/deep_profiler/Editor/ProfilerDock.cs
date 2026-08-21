@@ -36,10 +36,12 @@ public partial class ProfilerDock : VBoxContainer
     private SignalPane signalPane;
     private EventPane eventPane;
     private ManagedPane heapPane;
+    private InputPane inputPane;
     private Tree costTree;
     private int tabOverview;
     private int tabScopes;
     private int tabHeap;
+    private int tabInput;
     private int tabScene;
     private int tabObjects;
     private int tabResources;
@@ -86,6 +88,7 @@ public partial class ProfilerDock : VBoxContainer
         BuildOverview();
         BuildScopes();
         BuildHeap();
+        BuildInput();
         BuildScene();
         BuildObjects();
         BuildResources();
@@ -283,6 +286,13 @@ public partial class ProfilerDock : VBoxContainer
         tabHeap = heapPane.GetIndex();
     }
 
+    private void BuildInput()
+    {
+        inputPane = new InputPane { Name = "Input", Data = Data, Source = source };
+        tabs.AddChild(inputPane);
+        tabInput = inputPane.GetIndex();
+    }
+
     private void BuildScene()
     {
         HSplitContainer split = new HSplitContainer { Name = "Scene" };
@@ -446,6 +456,10 @@ public partial class ProfilerDock : VBoxContainer
         else if (tab == tabHeap)
         {
             heapPane.Refresh();
+        }
+        else if (tab == tabInput)
+        {
+            inputPane.Refresh();
         }
         else if (tab == tabScene)
         {
