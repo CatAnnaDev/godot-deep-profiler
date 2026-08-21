@@ -1,0 +1,35 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Deep Profiler"
+run/main_scene="res://demo/Demo.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[autoload]
+
+DeepProf="*res://addons/deep_profiler/Runtime/ProfilerRuntime.cs"
+
+[deep_profiler]
+
+overlay/start_visible=true
+
+[dotnet]
+
+project/assembly_name="DeepProfiler"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/deep_profiler/plugin.cfg")
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.07, 0.08, 0.11, 1)
