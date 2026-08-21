@@ -73,6 +73,11 @@ public sealed class RemoteGraphSource : IGraphSource
         debugger?.SendCommand(Protocol.CmdCollect);
     }
 
+    public void Greet()
+    {
+        debugger?.SendCommand(Protocol.CmdHello);
+    }
+
     public void SetRate(int hz)
     {
         debugger?.SendCommand(Protocol.CmdRate, hz);

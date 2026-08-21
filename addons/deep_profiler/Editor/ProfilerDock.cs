@@ -39,6 +39,7 @@ public partial class ProfilerDock : VBoxContainer
     private readonly List<GDDict> costRows = new List<GDDict>(16);
 
     private double refreshTimer;
+    private double greetTimer;
     private bool dirty = true;
     private long pinnedFrame = -1;
     private bool sceneRequested;
@@ -374,6 +375,15 @@ public partial class ProfilerDock : VBoxContainer
 
     public override void _Process(double delta)
     {
+        if (Debugger != null && Debugger.IsRunning && (Data == null || !Data.Connected))
+        {
+            greetTimer += delta;
+            if (greetTimer >= 0.5)
+            {
+                greetTimer = 0.0;
+                source.Greet();
+            }
+        }
         refreshTimer += delta;
         if (refreshTimer < 0.1)
             return;

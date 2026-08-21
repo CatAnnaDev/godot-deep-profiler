@@ -56,6 +56,7 @@ public partial class ProfilerRuntime : Node
     private int nodesRemoved;
     private double overlayMs;
     private bool connected;
+    private bool handshake;
     private bool paused;
     private bool captureNextFrame;
     private bool registered;
@@ -110,7 +111,6 @@ public partial class ProfilerRuntime : Node
             EnsureOverlay();
         if ((bool)GetSetting("deep_profiler/overlay/start_visible", false))
             SetOverlayVisible(true);
-        SendHello();
     }
 
     public override void _ExitTree()
@@ -268,7 +268,7 @@ public partial class ProfilerRuntime : Node
         {
             sendAccumulator = 0.0;
             RotateWindow();
-            if (connected)
+            if (connected && handshake)
                 Flush();
         }
 
@@ -515,7 +515,7 @@ public partial class ProfilerRuntime : Node
 
     private void Send(string message, GDArray data)
     {
-        if (!connected)
+        if (!connected || !handshake)
             return;
         try
         {
@@ -550,6 +550,17 @@ public partial class ProfilerRuntime : Node
     {
         switch (name)
         {
+            case Protocol.CmdHello:
+            {
+                handshake = true;
+                namesSent = 0;
+                lastSentFrame = Sampler.Ring.Oldest;
+                SendHello();
+                break;
+            }
+            case Protocol.CmdStop:
+                handshake = false;
+                break;
             case Protocol.CmdRate:
             {
                 int rate = Math.Clamp(data[1].AsInt32(), 1, 60);

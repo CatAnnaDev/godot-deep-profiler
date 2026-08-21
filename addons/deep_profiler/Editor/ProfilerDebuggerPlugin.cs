@@ -26,15 +26,14 @@ public partial class ProfilerDebuggerPlugin : EditorDebuggerPlugin
         activeSession = sessionId;
         session.Started += () => OnStarted(sessionId);
         session.Stopped += () => OnStopped(sessionId);
+        SendCommand(Protocol.CmdHello);
     }
 
     private void OnStarted(int sessionId)
     {
         activeSession = sessionId;
         Data?.Reset();
-        if (Data != null)
-            Data.Connected = true;
-        ConnectionChanged?.Invoke(true);
+        SendCommand(Protocol.CmdHello);
     }
 
     private void OnStopped(int sessionId)
@@ -66,9 +65,9 @@ public partial class ProfilerDebuggerPlugin : EditorDebuggerPlugin
 
     public override bool _Capture(string message, GDArray data, int sessionId)
     {
-        if (Data == null)
-            return false;
         activeSession = sessionId;
+        if (Data == null)
+            return true;
         try
         {
             Route(message, data);

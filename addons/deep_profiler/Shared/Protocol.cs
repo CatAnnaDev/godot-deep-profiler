@@ -22,6 +22,8 @@ public static class Protocol
     public const string MsgInstances = Prefix + ":instances";
     public const string MsgFailure = Prefix + ":failure";
 
+    public const string CmdHello = "hello";
+    public const string CmdStop = "stop";
     public const string CmdRate = "rate";
     public const string CmdPause = "pause";
     public const string CmdScopes = "scopes";

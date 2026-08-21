@@ -43,6 +43,7 @@ public partial class ProfilerPlugin : EditorPlugin
         }
         if (debugger != null)
         {
+            debugger.SendCommand(Protocol.CmdStop);
             RemoveDebuggerPlugin(debugger);
             debugger = null;
         }
