@@ -11,6 +11,7 @@ public sealed class Ablation
     private const int Warmup = 3;
 
     private readonly List<double>[] samples = new List<double>[PhaseCount];
+    private readonly List<double>[] objectSamples = new List<double>[PhaseCount];
     private ulong targetId;
     private int framesPerPhase;
     private int phase = -1;
@@ -27,7 +28,10 @@ public sealed class Ablation
     public Ablation()
     {
         for (int i = 0; i < PhaseCount; i++)
+        {
             samples[i] = new List<double>(64);
+            objectSamples[i] = new List<double>(64);
+        }
     }
 
     public string Start(ulong id, int frames)
@@ -47,7 +51,10 @@ public sealed class Ablation
         savedMode = node.ProcessMode;
         hasVisible = TryGetVisible(node, out savedVisible);
         for (int i = 0; i < PhaseCount; i++)
+        {
             samples[i].Clear();
+            objectSamples[i].Clear();
+        }
         phase = 0;
         frameCounter = 0;
         Apply(node, phase);
@@ -66,7 +73,7 @@ public sealed class Ablation
         return false;
     }
 
-    public GDDict Tick(double frameMs)
+    public GDDict Tick(double frameMs, double objectsCreated)
     {
         if (!Running)
             return null;
@@ -78,7 +85,10 @@ public sealed class Ablation
         }
         frameCounter++;
         if (frameCounter > Warmup)
+        {
             samples[phase].Add(frameMs);
+            objectSamples[phase].Add(objectsCreated);
+        }
         if (frameCounter < framesPerPhase + Warmup)
             return null;
 
@@ -165,6 +175,16 @@ public sealed class Ablation
         }
     }
 
+    private static double Average(List<double> values)
+    {
+        if (values.Count == 0)
+            return 0.0;
+        double sum = 0.0;
+        for (int i = 0; i < values.Count; i++)
+            sum += values[i];
+        return sum / values.Count;
+    }
+
     private static double Median(List<double> values)
     {
         if (values.Count == 0)
@@ -180,6 +200,8 @@ public sealed class Ablation
         double noProcess = Median(samples[1]);
         double noVisible = Median(samples[2]);
         double noBoth = Median(samples[3]);
+        double objectsBaseline = Average(objectSamples[0]);
+        double objectsDisabled = Average(objectSamples[1]);
         return new GDDict
         {
             { "ok", true },
@@ -196,6 +218,9 @@ public sealed class Ablation
             { "render", hasVisible ? baseline - noVisible : 0.0 },
             { "total", hasVisible ? baseline - noBoth : baseline - noProcess },
             { "has_visible", hasVisible },
+            { "objects", objectsBaseline },
+            { "objects_disabled", objectsDisabled },
+            { "objects_cost", Math.Max(0.0, objectsBaseline - objectsDisabled) },
         };
     }
 }

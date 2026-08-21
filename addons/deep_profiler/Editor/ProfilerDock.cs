@@ -339,7 +339,7 @@ public partial class ProfilerDock : VBoxContainer
 
         Label hint = new Label
         {
-            Text = "Pick a node in the Scene tab and press Measure cost. The node is disabled and hidden for a few frames each, and the frame time difference is reported here.",
+            Text = "Pick a node in the Scene tab and press Measure cost. The node is disabled and hidden for a few frames each. The report gives the frame time it costs and how many engine objects it creates per frame, which is how you find what churns while you play.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         hint.AddThemeFontSizeOverride("font_size", 10);
@@ -359,7 +359,7 @@ public partial class ProfilerDock : VBoxContainer
         costTree.SetColumnTitle(3, "Logic");
         costTree.SetColumnTitle(4, "Render");
         costTree.SetColumnTitle(5, "Total");
-        costTree.SetColumnTitle(6, "Share");
+        costTree.SetColumnTitle(6, "Objects");
         costTree.SetColumnExpandRatio(0, 3);
         costTree.SetColumnExpandRatio(1, 2);
         page.AddChild(costTree);
@@ -599,7 +599,8 @@ public partial class ProfilerDock : VBoxContainer
             item.SetText(3, Fmt.Ms(row["logic"].AsDouble()));
             item.SetText(4, Fmt.Ms(row["render"].AsDouble()));
             item.SetText(5, Fmt.Ms(total));
-            item.SetText(6, baseline > 0.0 ? Fmt.Percent(total / baseline) : string.Empty);
+            double objectsCost = row.TryGetValue("objects_cost", out Variant cost) ? cost.AsDouble() : 0.0;
+            item.SetText(6, objectsCost > 0.01 ? Fmt.Number(Math.Round(objectsCost, 1)) + " per frame" : string.Empty);
             for (int column = 2; column <= 6; column++)
                 item.SetTextAlignment(column, HorizontalAlignment.Right);
             item.SetCustomColor(1, Dim);

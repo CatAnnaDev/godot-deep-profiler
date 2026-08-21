@@ -24,6 +24,7 @@ public partial class CensusPane : VBoxContainer
     private CheckButton autoCrawl;
     private OptionButton autoInterval;
     private CheckButton lightCrawl;
+    private Label verdict;
 
     private static readonly Color DimColor = new Color(0.55f, 0.58f, 0.65f);
     private static readonly Color GrowColor = new Color(0.95f, 0.55f, 0.45f);
@@ -90,6 +91,10 @@ public partial class CensusPane : VBoxContainer
         summary.AddThemeFontSizeOverride("font_size", 10);
         summary.AddThemeColorOverride("font_color", DimColor);
         bar.AddChild(summary);
+
+        verdict = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        verdict.AddThemeFontSizeOverride("font_size", 11);
+        AddChild(verdict);
 
         HSplitContainer split = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         AddChild(split);
@@ -208,6 +213,7 @@ public partial class CensusPane : VBoxContainer
         }
 
         bool light = Data.Census.TryGetValue("light", out Variant lightValue) && lightValue.AsBool();
+        UpdateVerdict();
         summary.Text = (light ? "light crawl   " : string.Empty) + "objects " + Fmt.Count(Data.Census["objects"].AsInt32())
                        + "   nodes " + Fmt.Count(Data.Census["nodes"].AsInt32())
                        + "   estimated " + Fmt.Bytes(Data.Census["bytes"].AsInt64())
@@ -227,6 +233,39 @@ public partial class CensusPane : VBoxContainer
             _ => a["bytes"].AsInt64().CompareTo(b["bytes"].AsInt64()),
         };
         return sortAscending ? result : -result;
+    }
+
+    private void UpdateVerdict()
+    {
+        FrameRing ring = Data.Frames;
+        if (ring.Count < 60)
+        {
+            verdict.Text = string.Empty;
+            return;
+        }
+        long last = ring.Total - 1;
+        long from = Math.Max(ring.Oldest, last - 600);
+        float now = ring.At(last, Protocol.FObjects);
+        float before = ring.At(from, Protocol.FObjects);
+        float seconds = Math.Max(1f, (last - from) / Math.Max(1f, ring.Average(Protocol.FFps, last - 60, last + 1)));
+        float growth = now - before;
+        float created = ring.Average(Protocol.FObjectsAdded, last - 120, last + 1);
+        int reachable = Data.Census["objects"].AsInt32();
+        float unreachable = Math.Max(0f, now - reachable);
+
+        if (growth > Math.Max(64f, now * 0.02f))
+        {
+            verdict.AddThemeColorOverride("font_color", GrowColor);
+            verdict.Text = "Growing: " + Fmt.Count(growth) + " more objects in " + seconds.ToString("0") + " s ("
+                           + Fmt.Count(growth / seconds) + " per second). "
+                           + (unreachable > growth * 0.5f
+                               ? "They are not reachable from the scene tree, so the class table cannot name them. Use Measure cost on the suspect nodes to bisect, and check the Input tab."
+                               : "Sort by Since crawl, the class at the top is the one accumulating.");
+            return;
+        }
+        verdict.AddThemeColorOverride("font_color", ShrinkColor);
+        verdict.Text = "Stable: " + Fmt.Number(Math.Round(created, 1)) + " objects created per frame and released again, "
+                       + Fmt.Count(unreachable) + " alive outside the scene tree. This is churn, not a leak: it costs allocation time, not memory.";
     }
 
     private void PushAutoCrawl()

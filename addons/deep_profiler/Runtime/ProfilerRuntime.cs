@@ -296,7 +296,7 @@ public partial class ProfilerRuntime : Node
         nodesAdded = 0;
         nodesRemoved = 0;
 
-        GDDict ablationResult = ablation.Tick(frameMs);
+        GDDict ablationResult = ablation.Tick(frameMs, Sampler.Ring.Count > 0 ? Sampler.Ring.At(Sampler.Ring.Total - 1, Protocol.FObjectsAdded) : 0.0);
         if (ablationResult != null)
         {
             LastAblationResult = ablationResult;
