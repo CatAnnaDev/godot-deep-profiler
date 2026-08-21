@@ -33,6 +33,19 @@ public partial class ProfilerRuntime : Node
     public bool OverlayVisible => overlay != null && overlay.PanelVisible;
 
     private readonly Ablation ablation = new Ablation();
+    private readonly ManagedHeapProbe heap = new ManagedHeapProbe();
+    private readonly GrowthWatch[] growthWatches =
+    {
+        new GrowthWatch("engine objects", 64f, 0.05f),
+        new GrowthWatch("nodes", 32f, 0.05f),
+        new GrowthWatch("resources", 16f, 0.05f),
+        new GrowthWatch("orphan nodes", 8f, 0.0f),
+        new GrowthWatch("managed heap MB", 8f, 0.15f),
+    };
+    private static readonly int[] GrowthFields =
+    {
+        Protocol.FObjects, Protocol.FNodes, Protocol.FResources, Protocol.FOrphans, Protocol.FGcHeap,
+    };
     private readonly List<(int Id, CounterSlot Slot)> counterScratch = new List<(int, CounterSlot)>(32);
     private readonly List<GDDict> pendingEvents = new List<GDDict>(64);
     private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -52,6 +65,7 @@ public partial class ProfilerRuntime : Node
     private double sendAccumulator;
     private double sendInterval = 0.1;
     private double crawlAccumulator;
+    private double growthAccumulator;
     private int nodesAdded;
     private int nodesRemoved;
     private double overlayMs;
@@ -128,6 +142,7 @@ public partial class ProfilerRuntime : Node
             EngineDebugger.UnregisterMessageCapture(Protocol.Prefix);
             registered = false;
         }
+        heap.Dispose();
         if (Instance == this)
             Instance = null;
     }
@@ -236,7 +251,8 @@ public partial class ProfilerRuntime : Node
         if (!paused)
         {
             Sampler.Sample(frameMs, processTicks * ScopeTree.TicksToMs, physicsTicks * ScopeTree.TicksToMs,
-                scopeMs, overlayMs, nodesAdded, nodesRemoved);
+                scopeMs, overlayMs, nodesAdded, nodesRemoved, heap);
+            TrackGrowth(delta);
         }
 
         if (frameMs > SpikeMs && frameIndex > 30)
@@ -280,6 +296,25 @@ public partial class ProfilerRuntime : Node
                 crawlAccumulator = 0.0;
                 SendCensus(CrawlBudget);
             }
+        }
+    }
+
+    private void TrackGrowth(double delta)
+    {
+        growthAccumulator += delta;
+        if (growthAccumulator < 1.0)
+            return;
+        double elapsed = growthAccumulator;
+        growthAccumulator = 0.0;
+        FrameRing ring = Sampler.Ring;
+        if (ring.Count == 0)
+            return;
+        long last = ring.Total - 1;
+        for (int i = 0; i < growthWatches.Length; i++)
+        {
+            string message = growthWatches[i].Push(ring.At(last, GrowthFields[i]), elapsed, 1.0);
+            if (message != null)
+                PushEvent("growth", message);
         }
     }
 
@@ -353,6 +388,7 @@ public partial class ProfilerRuntime : Node
         SendNames();
         SendFrames();
         SendScopes();
+        SendHeap();
         SendEvents();
     }
 
@@ -495,6 +531,11 @@ public partial class ProfilerRuntime : Node
         return rows;
     }
 
+    private void SendHeap()
+    {
+        Send(Protocol.MsgHeap, new GDArray { heap.Snapshot(80) });
+    }
+
     private void SendEvents()
     {
         if (pendingEvents.Count == 0)
@@ -627,6 +668,17 @@ public partial class ProfilerRuntime : Node
                 Sampler.SetWatch(slot, id, path);
                 break;
             }
+            case Protocol.CmdHeapReset:
+                heap.Reset();
+                for (int i = 0; i < growthWatches.Length; i++)
+                    growthWatches[i].Reset();
+                break;
+            case Protocol.CmdAutoCrawl:
+                AutoCrawl = data[1].AsBool();
+                if (data.Count > 2)
+                    AutoCrawlInterval = Math.Clamp(data[2].AsDouble(), 1.0, 120.0);
+                crawlAccumulator = 0.0;
+                break;
             case Protocol.CmdCollect:
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
                 PushEvent("gc", "forced collection");
@@ -712,6 +764,18 @@ public partial class ProfilerRuntime : Node
     public void CaptureNextFrame()
     {
         captureNextFrame = true;
+    }
+
+    public GDDict HeapSnapshot(int limit)
+    {
+        return heap.Snapshot(limit);
+    }
+
+    public void ResetHeap()
+    {
+        heap.Reset();
+        for (int i = 0; i < growthWatches.Length; i++)
+            growthWatches[i].Reset();
     }
 
     public GDDict RunCrawl(int budget)

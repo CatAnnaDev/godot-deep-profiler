@@ -20,6 +20,7 @@ public static class Protocol
     public const string MsgFrameDetail = Prefix + ":framedetail";
     public const string MsgCommand = Prefix + ":cmd";
     public const string MsgInstances = Prefix + ":instances";
+    public const string MsgHeap = Prefix + ":heap";
     public const string MsgFailure = Prefix + ":failure";
 
     public const string CmdHello = "hello";
@@ -40,6 +41,8 @@ public static class Protocol
     public const string CmdTimeScale = "timescale";
     public const string CmdPauseGame = "pausegame";
     public const string CmdInstances = "instances";
+    public const string CmdHeapReset = "heapreset";
+    public const string CmdAutoCrawl = "autocrawl";
 
     public const int WatchSlots = 8;
 
@@ -78,7 +81,14 @@ public static class Protocol
     public const int FNavAgents = 32;
     public const int FPipelines = 33;
     public const int FOtherMs = 34;
-    public const int FWatch0 = 35;
+    public const int FGen0 = 35;
+    public const int FGen1 = 36;
+    public const int FGen2 = 37;
+    public const int FLoh = 38;
+    public const int FPoh = 39;
+    public const int FGcPause = 40;
+    public const int FGcFrag = 41;
+    public const int FWatch0 = 42;
 
     public const int Stride = FWatch0 + WatchSlots;
 
@@ -93,6 +103,7 @@ public static class Protocol
         "Audio latency", "GC gen0", "GC gen1", "GC gen2",
         "Scoped", "Nodes added", "Nodes freed", "Threads", "Working set",
         "Overlay", "Time scale", "Nav agents", "Pipelines", "Other",
+        "Gen 0", "Gen 1", "Gen 2", "Large heap", "Pinned heap", "GC pause", "Fragmentation",
         "Watch 1", "Watch 2", "Watch 3", "Watch 4",
         "Watch 5", "Watch 6", "Watch 7", "Watch 8",
     };
@@ -108,6 +119,8 @@ public static class Protocol
         FieldUnit.Milliseconds, FieldUnit.Count, FieldUnit.Count, FieldUnit.Count,
         FieldUnit.Milliseconds, FieldUnit.Count, FieldUnit.Count, FieldUnit.Count, FieldUnit.Megabytes,
         FieldUnit.Milliseconds, FieldUnit.Ratio, FieldUnit.Count, FieldUnit.Count, FieldUnit.Milliseconds,
+        FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes, FieldUnit.Megabytes,
+        FieldUnit.Milliseconds, FieldUnit.Megabytes,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
         FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw, FieldUnit.Raw,
     };

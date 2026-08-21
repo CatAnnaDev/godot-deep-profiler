@@ -5,7 +5,7 @@ namespace DeepProf;
 
 public static class GraphPresets
 {
-    public static readonly string[] Names = { "Time", "Memory", "Render", "Counts", "Physics", "Watches" };
+    public static readonly string[] Names = { "Time", "Memory", "Render", "Counts", "Physics", "Managed heap", "Watches" };
 
     private static readonly Color[] Palette =
     {
@@ -60,6 +60,15 @@ public static class GraphPresets
                 graph.AddSeries(Protocol.FPhys3dPairs, Palette[3], "3D pairs");
                 break;
             case 5:
+                graph.Unit = FieldUnit.Megabytes;
+                graph.MinRange = 4f;
+                graph.AddSeries(Protocol.FGen0, Palette[0], "Gen 0", true);
+                graph.AddSeries(Protocol.FGen1, Palette[1], "Gen 1");
+                graph.AddSeries(Protocol.FGen2, Palette[2], "Gen 2");
+                graph.AddSeries(Protocol.FLoh, Palette[3], "Large heap");
+                graph.AddSeries(Protocol.FGcFrag, Palette[4], "Fragmentation");
+                break;
+            case 6:
                 graph.Unit = FieldUnit.Raw;
                 graph.MinRange = 1f;
                 for (int i = 0; i < Protocol.WatchSlots; i++)

@@ -22,6 +22,7 @@ public sealed class FrameSampler
     private int slowTick;
     private float cachedWorkingSet;
     private float cachedThreads;
+    private readonly float[] cachedHeap = new float[Protocol.Stride];
 
     public FrameSampler(int capacity)
     {
@@ -57,7 +58,7 @@ public sealed class FrameSampler
         return watches[slot].Path;
     }
 
-    public void Sample(double frameMs, double processMs, double physicsMs, double scopeMs, double overlayMs, int nodesAdded, int nodesRemoved)
+    public void Sample(double frameMs, double processMs, double physicsMs, double scopeMs, double overlayMs, int nodesAdded, int nodesRemoved, ManagedHeapProbe heap)
     {
         Array.Clear(sample, 0, sample.Length);
         sample[Protocol.FFrameMs] = (float)frameMs;
@@ -104,9 +105,12 @@ public sealed class FrameSampler
 
         if (--slowTick <= 0)
         {
-            slowTick = 60;
+            slowTick = 30;
             RefreshProcessStats();
+            heap?.FillFrame(cachedHeap);
         }
+        for (int i = Protocol.FGen0; i <= Protocol.FGcFrag; i++)
+            sample[i] = cachedHeap[i];
         sample[Protocol.FWorkingSet] = cachedWorkingSet;
         sample[Protocol.FThreads] = cachedThreads;
 

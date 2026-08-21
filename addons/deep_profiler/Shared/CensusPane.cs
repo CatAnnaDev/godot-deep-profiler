@@ -18,9 +18,11 @@ public partial class CensusPane : VBoxContainer
     private Label summary;
     private Label instanceHeader;
     private LineEdit filter;
-    private int sortColumn = 3;
+    private int sortColumn = 4;
     private bool sortAscending;
     private string selectedClass = string.Empty;
+    private CheckButton autoCrawl;
+    private OptionButton autoInterval;
 
     private static readonly Color DimColor = new Color(0.55f, 0.58f, 0.65f);
     private static readonly Color GrowColor = new Color(0.95f, 0.55f, 0.45f);
@@ -54,6 +56,23 @@ public partial class CensusPane : VBoxContainer
         };
         bar.AddChild(clearBaseline);
 
+        autoCrawl = new CheckButton { Text = "Auto crawl", TooltipText = "Re-walk the object graph on a timer so the growth columns stay live" };
+        autoCrawl.Toggled += value => Source?.SetAutoCrawl(value, IntervalSeconds());
+        bar.AddChild(autoCrawl);
+
+        autoInterval = new OptionButton { TooltipText = "Interval between automatic crawls" };
+        autoInterval.AddItem("2 s", 0);
+        autoInterval.AddItem("5 s", 1);
+        autoInterval.AddItem("15 s", 2);
+        autoInterval.AddItem("30 s", 3);
+        autoInterval.Selected = 1;
+        autoInterval.ItemSelected += _ =>
+        {
+            if (autoCrawl.ButtonPressed)
+                Source?.SetAutoCrawl(true, IntervalSeconds());
+        };
+        bar.AddChild(autoInterval);
+
         filter = new LineEdit { PlaceholderText = "filter class", CustomMinimumSize = new Vector2(140, 0) };
         filter.TextChanged += _ => Refresh();
         bar.AddChild(filter);
@@ -68,7 +87,7 @@ public partial class CensusPane : VBoxContainer
 
         classes = new Tree
         {
-            Columns = 5,
+            Columns = 6,
             ColumnTitlesVisible = true,
             HideRoot = true,
             SelectMode = Tree.SelectModeEnum.Row,
@@ -76,19 +95,22 @@ public partial class CensusPane : VBoxContainer
         };
         classes.SetColumnTitle(0, "Class");
         classes.SetColumnTitle(1, "Count");
-        classes.SetColumnTitle(2, "Delta");
-        classes.SetColumnTitle(3, "Bytes");
-        classes.SetColumnTitle(4, "Average");
+        classes.SetColumnTitle(2, "Since crawl");
+        classes.SetColumnTitle(3, "Since base");
+        classes.SetColumnTitle(4, "Bytes");
+        classes.SetColumnTitle(5, "Average");
         classes.SetColumnExpandRatio(0, 4);
-        classes.SetColumnCustomMinimumWidth(0, 130);
+        classes.SetColumnCustomMinimumWidth(0, 108);
         classes.SetColumnExpandRatio(1, 1);
         classes.SetColumnExpandRatio(2, 1);
-        classes.SetColumnExpandRatio(3, 2);
+        classes.SetColumnExpandRatio(3, 1);
         classes.SetColumnExpandRatio(4, 2);
-        classes.SetColumnCustomMinimumWidth(1, 52);
-        classes.SetColumnCustomMinimumWidth(2, 48);
-        classes.SetColumnCustomMinimumWidth(3, 72);
-        classes.SetColumnCustomMinimumWidth(4, 72);
+        classes.SetColumnExpandRatio(5, 2);
+        classes.SetColumnCustomMinimumWidth(1, 48);
+        classes.SetColumnCustomMinimumWidth(2, 54);
+        classes.SetColumnCustomMinimumWidth(3, 54);
+        classes.SetColumnCustomMinimumWidth(4, 64);
+        classes.SetColumnCustomMinimumWidth(5, 64);
         classes.ColumnTitleClicked += OnColumnClicked;
         classes.ItemSelected += OnClassSelected;
         split.AddChild(classes);
@@ -157,20 +179,20 @@ public partial class CensusPane : VBoxContainer
             string className = row["class"].AsString();
             int count = row["count"].AsInt32();
             long bytes = row["bytes"].AsInt64();
-            int delta = Data.BaselineDelta(className, count);
+            int crawlDelta = Data.CrawlDelta(className, count);
+            int baseDelta = Data.BaselineDelta(className, count);
             TreeItem item = classes.CreateItem(root);
             item.SetText(0, className);
             item.SetText(1, Fmt.Count(count));
-            item.SetText(2, delta == 0 ? string.Empty : (delta > 0 ? "+" : string.Empty) + delta);
-            item.SetText(3, (row["est"].AsBool() ? "~" : string.Empty) + Fmt.Bytes(bytes));
-            item.SetText(4, Fmt.Bytes(count > 0 ? bytes / (double)count : 0));
-            for (int i = 1; i <= 4; i++)
+            item.SetText(2, DeltaText(crawlDelta));
+            item.SetText(3, DeltaText(baseDelta));
+            item.SetText(4, (row["est"].AsBool() ? "~" : string.Empty) + Fmt.Bytes(bytes));
+            item.SetText(5, Fmt.Bytes(count > 0 ? bytes / (double)count : 0));
+            for (int i = 1; i <= 5; i++)
                 item.SetTextAlignment(i, HorizontalAlignment.Right);
-            if (delta > 0)
-                item.SetCustomColor(2, GrowColor);
-            else if (delta < 0)
-                item.SetCustomColor(2, ShrinkColor);
-            item.SetCustomColor(4, DimColor);
+            Tint(item, 2, crawlDelta);
+            Tint(item, 3, baseDelta);
+            item.SetCustomColor(5, DimColor);
             item.SetMetadata(0, className);
         }
 
@@ -187,11 +209,30 @@ public partial class CensusPane : VBoxContainer
         {
             0 => string.CompareOrdinal(a["class"].AsString(), b["class"].AsString()),
             1 => a["count"].AsInt32().CompareTo(b["count"].AsInt32()),
-            2 => Data.BaselineDelta(a["class"].AsString(), a["count"].AsInt32()).CompareTo(Data.BaselineDelta(b["class"].AsString(), b["count"].AsInt32())),
-            4 => Average(a).CompareTo(Average(b)),
+            2 => Data.CrawlDelta(a["class"].AsString(), a["count"].AsInt32()).CompareTo(Data.CrawlDelta(b["class"].AsString(), b["count"].AsInt32())),
+            3 => Data.BaselineDelta(a["class"].AsString(), a["count"].AsInt32()).CompareTo(Data.BaselineDelta(b["class"].AsString(), b["count"].AsInt32())),
+            5 => Average(a).CompareTo(Average(b)),
             _ => a["bytes"].AsInt64().CompareTo(b["bytes"].AsInt64()),
         };
         return sortAscending ? result : -result;
+    }
+
+    private double IntervalSeconds()
+    {
+        return autoInterval.Selected switch { 0 => 2.0, 2 => 15.0, 3 => 30.0, _ => 5.0 };
+    }
+
+    private static string DeltaText(int delta)
+    {
+        return delta == 0 ? string.Empty : (delta > 0 ? "+" : string.Empty) + delta;
+    }
+
+    private static void Tint(TreeItem item, int column, int delta)
+    {
+        if (delta > 0)
+            item.SetCustomColor(column, GrowColor);
+        else if (delta < 0)
+            item.SetCustomColor(column, ShrinkColor);
     }
 
     private static double Average(GDDict row)

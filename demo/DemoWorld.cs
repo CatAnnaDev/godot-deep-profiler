@@ -12,6 +12,8 @@ public partial class DemoWorld : Node3D
     private readonly List<MeshInstance3D> spinners = new List<MeshInstance3D>(256);
     private readonly List<Node3D> sparks = new List<Node3D>(64);
     private readonly Random random = new Random(7);
+    private readonly Dictionary<int, byte[]> leakedBuffers = new Dictionary<int, byte[]>(4096);
+    private readonly List<Node> leakedNodes = new List<Node>(512);
     private static readonly ProfMarker SpinMarker = Prof.Marker("World.Spinners");
 
     private PlayerController player;
@@ -22,6 +24,8 @@ public partial class DemoWorld : Node3D
     private Crosshair crosshair;
     private double elapsed;
     private int frame;
+    private bool leaking;
+    private int leakCounter;
 
     public override void _Ready()
     {
@@ -309,6 +313,9 @@ public partial class DemoWorld : Node3D
                 }
             }
 
+            if (leaking && frame % 2 == 0)
+                LeakStep();
+
             using (Prof.Scope("World.Hud"))
                 UpdateHud();
 
@@ -327,13 +334,48 @@ public partial class DemoWorld : Node3D
         Prof.Counter("spinners", spinners.Count);
     }
 
+    public override void _UnhandledKeyInput(InputEvent @event)
+    {
+        if (@event is InputEventKey key && key.Pressed && !key.Echo && key.Keycode == Key.L)
+            ToggleLeak();
+    }
+
+    private void ToggleLeak()
+    {
+        leaking = !leaking;
+        if (leaking)
+        {
+            Prof.Event("leak", "simulation demarree");
+            return;
+        }
+        foreach (Node node in leakedNodes)
+            node.Free();
+        leakedNodes.Clear();
+        leakedBuffers.Clear();
+        Prof.Event("leak", "simulation arretee et memoire liberee");
+    }
+
+    private void LeakStep()
+    {
+        using (Prof.Scope("World.Leak"))
+        {
+            for (int i = 0; i < 24; i++)
+                leakedBuffers[leakCounter++] = new byte[4096];
+            for (int i = 0; i < 3; i++)
+                leakedNodes.Add(new Node3D { Name = "Leaked" + leakedNodes.Count });
+            Prof.Counter("leaked buffers", leakedBuffers.Count);
+            Prof.Counter("leaked nodes", leakedNodes.Count);
+        }
+    }
+
     private void UpdateHud()
     {
         Key hotkey = ProfilerRuntime.Instance?.OverlayHotkey ?? Key.F3;
         statusLabel.Text = Fmt.Number(Engine.GetFramesPerSecond()) + " fps"
                            + "\nclick to capture the mouse, WASD move, shift sprint, space jump, escape frees the cursor"
                            + "\nleft click pushes, right click shoots, E inspects the aimed node, F outlines it"
-                           + "\n" + hotkey + " toggles the profiler overlay";
+                           + "\n" + hotkey + " toggles the profiler overlay, L toggles a deliberate leak"
+                           + (leaking ? "   LEAKING " + leakedNodes.Count + " orphan nodes and " + leakedBuffers.Count + " buffers" : string.Empty);
 
         Node3D aimed = player.AimedNode;
         crosshair.Locked = aimed != null;

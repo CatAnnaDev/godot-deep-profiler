@@ -35,7 +35,17 @@ public partial class ProfilerDock : VBoxContainer
     private ResourcePane resourcePane;
     private SignalPane signalPane;
     private EventPane eventPane;
+    private ManagedPane heapPane;
     private Tree costTree;
+    private int tabOverview;
+    private int tabScopes;
+    private int tabHeap;
+    private int tabScene;
+    private int tabObjects;
+    private int tabResources;
+    private int tabSignals;
+    private int tabCost;
+    private int tabEvents;
     private readonly List<GDDict> costRows = new List<GDDict>(16);
 
     private double refreshTimer;
@@ -65,6 +75,7 @@ public partial class ProfilerDock : VBoxContainer
 
         BuildOverview();
         BuildScopes();
+        BuildHeap();
         BuildScene();
         BuildObjects();
         BuildResources();
@@ -171,6 +182,7 @@ public partial class ProfilerDock : VBoxContainer
     {
         VBoxContainer page = new VBoxContainer { Name = "Overview" };
         tabs.AddChild(page);
+        tabOverview = page.GetIndex();
 
         HFlowContainer bar = new HFlowContainer();
         page.AddChild(bar);
@@ -251,6 +263,14 @@ public partial class ProfilerDock : VBoxContainer
     {
         scopePane = new ScopePane { Name = "Scopes", Data = Data, Source = source };
         tabs.AddChild(scopePane);
+        tabScopes = scopePane.GetIndex();
+    }
+
+    private void BuildHeap()
+    {
+        heapPane = new ManagedPane { Name = "Heap", Data = Data, Source = source };
+        tabs.AddChild(heapPane);
+        tabHeap = heapPane.GetIndex();
     }
 
     private void BuildScene()
@@ -264,6 +284,7 @@ public partial class ProfilerDock : VBoxContainer
         split.AddChild(treePane);
         split.AddChild(inspector);
         tabs.AddChild(split);
+        tabScene = split.GetIndex();
     }
 
     private void BuildObjects()
@@ -271,6 +292,7 @@ public partial class ProfilerDock : VBoxContainer
         censusPane = new CensusPane { Name = "Objects", Data = Data, Source = source };
         censusPane.Navigate = OpenInScene;
         tabs.AddChild(censusPane);
+        tabObjects = censusPane.GetIndex();
     }
 
     private void BuildResources()
@@ -278,6 +300,7 @@ public partial class ProfilerDock : VBoxContainer
         resourcePane = new ResourcePane { Name = "Resources", Data = Data, Source = source };
         resourcePane.Navigate = OpenInScene;
         tabs.AddChild(resourcePane);
+        tabResources = resourcePane.GetIndex();
     }
 
     private void BuildSignals()
@@ -285,12 +308,14 @@ public partial class ProfilerDock : VBoxContainer
         signalPane = new SignalPane { Name = "Signals", Data = Data, Source = source };
         signalPane.Navigate = OpenInScene;
         tabs.AddChild(signalPane);
+        tabSignals = signalPane.GetIndex();
     }
 
     private void BuildCost()
     {
         VBoxContainer page = new VBoxContainer { Name = "Cost" };
         tabs.AddChild(page);
+        tabCost = page.GetIndex();
 
         Label hint = new Label
         {
@@ -325,11 +350,12 @@ public partial class ProfilerDock : VBoxContainer
         eventPane = new EventPane { Name = "Events", Data = Data };
         eventPane.FramePicked = OnFramePinned;
         tabs.AddChild(eventPane);
+        tabEvents = eventPane.GetIndex();
     }
 
     private void OpenInScene(ulong id)
     {
-        tabs.CurrentTab = 2;
+        tabs.CurrentTab = tabScene;
         inspector.Navigate(id);
     }
 
@@ -393,39 +419,46 @@ public partial class ProfilerDock : VBoxContainer
         dirty = false;
         UpdateStatus();
         bool live = Data != null && Data.Connected;
-        switch (tabs.CurrentTab)
+        int tab = tabs.CurrentTab;
+        if (tab == tabOverview)
         {
-            case 0:
-                RefreshOverview();
-                break;
-            case 1:
-                scopePane.Refresh();
-                break;
-            case 2:
-                if (live && !sceneRequested)
-                {
-                    sceneRequested = true;
-                    treePane.RequestRoot();
-                }
-                break;
-            case 3:
-            case 4:
-                if (live && !censusRequested)
-                {
-                    censusRequested = true;
-                    source.RequestCensus();
-                }
-                break;
-            case 5:
-                if (live && !signalsRequested)
-                {
-                    signalsRequested = true;
-                    source.RequestSignals();
-                }
-                break;
-            case 7:
-                eventPane.Refresh();
-                break;
+            RefreshOverview();
+        }
+        else if (tab == tabScopes)
+        {
+            scopePane.Refresh();
+        }
+        else if (tab == tabHeap)
+        {
+            heapPane.Refresh();
+        }
+        else if (tab == tabScene)
+        {
+            if (live && !sceneRequested)
+            {
+                sceneRequested = true;
+                treePane.RequestRoot();
+            }
+        }
+        else if (tab == tabObjects || tab == tabResources)
+        {
+            if (live && !censusRequested)
+            {
+                censusRequested = true;
+                source.RequestCensus();
+            }
+        }
+        else if (tab == tabSignals)
+        {
+            if (live && !signalsRequested)
+            {
+                signalsRequested = true;
+                source.RequestSignals();
+            }
+        }
+        else if (tab == tabEvents)
+        {
+            eventPane.Refresh();
         }
     }
 
@@ -483,7 +516,7 @@ public partial class ProfilerDock : VBoxContainer
         }
         costRows.Add(result);
         RefreshCost();
-        tabs.CurrentTab = 6;
+        tabs.CurrentTab = tabCost;
     }
 
     private void RefreshCost()

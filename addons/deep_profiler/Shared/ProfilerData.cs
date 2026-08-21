@@ -14,6 +14,8 @@ public interface IGraphSource
     void RequestCensus();
     void RequestInstances(string className);
     void RequestSignals();
+    void ResetHeap();
+    void SetAutoCrawl(bool enabled, double interval);
     void RequestAblate(ulong id, int frames);
     void RequestHighlight(ulong id);
     void RequestWatch(int slot, ulong id, string path);
@@ -39,6 +41,7 @@ public sealed class ProfilerData
     public GDDict LastAblation;
     public GDArray Instances = new GDArray();
     public GDArray Signals = new GDArray();
+    public GDDict Heap = new GDDict();
     public double SignalMs;
     public string InstanceClass = string.Empty;
     public double WorstMs;
@@ -46,6 +49,7 @@ public sealed class ProfilerData
     public bool Connected;
     public readonly List<long> EventFrames = new List<long>(64);
     public readonly Dictionary<string, int> CensusBaseline = new Dictionary<string, int>(128, StringComparer.Ordinal);
+    public readonly Dictionary<string, int> PreviousCensus = new Dictionary<string, int>(128, StringComparer.Ordinal);
 
     public event Action Changed;
     public event Action<GDDict> TreeReceived;
@@ -54,6 +58,7 @@ public sealed class ProfilerData
     public event Action CensusReceived;
     public event Action InstancesReceived;
     public event Action SignalsReceived;
+    public event Action HeapReceived;
 
     public string NameOf(int id)
     {
@@ -73,6 +78,8 @@ public sealed class ProfilerData
         Census = new GDDict();
         Instances = new GDArray();
         Signals = new GDArray();
+        Heap = new GDDict();
+        PreviousCensus.Clear();
         LastObject = null;
         LastAblation = null;
         WorstMs = 0.0;
@@ -145,8 +152,28 @@ public sealed class ProfilerData
 
     public void ApplyCensus(GDDict census)
     {
+        PreviousCensus.Clear();
+        if (Census.TryGetValue("classes", out Variant previous))
+        {
+            foreach (Variant entry in previous.AsGodotArray())
+            {
+                GDDict row = entry.AsGodotDictionary();
+                PreviousCensus[row["class"].AsString()] = row["count"].AsInt32();
+            }
+        }
         Census = census;
         CensusReceived?.Invoke();
+    }
+
+    public void ApplyHeap(GDDict heap)
+    {
+        Heap = heap;
+        HeapReceived?.Invoke();
+    }
+
+    public int CrawlDelta(string className, int count)
+    {
+        return PreviousCensus.TryGetValue(className, out int previous) ? count - previous : 0;
     }
 
     public void ApplySignals(GDDict payload)

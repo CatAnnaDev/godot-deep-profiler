@@ -109,6 +109,9 @@ public partial class ProfilerDebuggerPlugin : EditorDebuggerPlugin
             case Protocol.MsgSignals:
                 Data.ApplySignals(data[0].AsGodotDictionary());
                 break;
+            case Protocol.MsgHeap:
+                Data.ApplyHeap(data[0].AsGodotDictionary());
+                break;
             case Protocol.MsgInstances:
                 Data.ApplyInstances(data[0].AsString(), data[1].AsGodotArray());
                 break;

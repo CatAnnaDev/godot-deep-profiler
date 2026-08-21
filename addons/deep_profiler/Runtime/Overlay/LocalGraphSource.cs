@@ -51,6 +51,21 @@ public sealed class LocalGraphSource : IGraphSource
         data.ApplySignals(ObjectGraph.SignalGraph(budget, 6000));
     }
 
+    public void ResetHeap()
+    {
+        ProfilerRuntime.Instance?.ResetHeap();
+        overlay?.Notify("allocation sampling restarted");
+    }
+
+    public void SetAutoCrawl(bool enabled, double interval)
+    {
+        ProfilerRuntime runtime = ProfilerRuntime.Instance;
+        if (runtime == null)
+            return;
+        runtime.AutoCrawl = enabled;
+        runtime.AutoCrawlInterval = interval;
+    }
+
     public void RequestInstances(string className)
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;

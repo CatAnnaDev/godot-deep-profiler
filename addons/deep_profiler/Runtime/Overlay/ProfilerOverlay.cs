@@ -29,6 +29,16 @@ public partial class ProfilerOverlay : CanvasLayer
     private ResourcePane resourcePane;
     private SignalPane signalPane;
     private EventPane eventPane;
+    private ManagedPane heapPane;
+    private int tabStats;
+    private int tabGraph;
+    private int tabScopes;
+    private int tabHeap;
+    private int tabTree;
+    private int tabObjects;
+    private int tabResources;
+    private int tabSignals;
+    private int tabEvents;
     private OptionButton speedSelect;
     private CheckButton pauseToggle;
 
@@ -109,6 +119,7 @@ public partial class ProfilerOverlay : CanvasLayer
         BuildStatsTab();
         BuildGraphTab();
         BuildScopesTab();
+        BuildHeapTab();
         BuildTreeTab();
         BuildObjectsTab();
         BuildResourcesTab();
@@ -194,6 +205,7 @@ public partial class ProfilerOverlay : CanvasLayer
         stats = new StatGrid { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         scroll.AddChild(stats);
         tabs.AddChild(scroll);
+        tabStats = scroll.GetIndex();
         string[] labels = new string[Protocol.Stride];
         Array.Copy(Protocol.FieldLabels, labels, Protocol.Stride);
         stats.Configure(labels, 3);
@@ -248,6 +260,7 @@ public partial class ProfilerOverlay : CanvasLayer
         };
         page.AddChild(graph);
         tabs.AddChild(page);
+        tabGraph = page.GetIndex();
         GraphPresets.Apply(graph, 0);
     }
 
@@ -255,6 +268,14 @@ public partial class ProfilerOverlay : CanvasLayer
     {
         scopePane = new ScopePane { Name = "Scopes", Data = data, Source = source, Compact = true };
         tabs.AddChild(scopePane);
+        tabScopes = scopePane.GetIndex();
+    }
+
+    private void BuildHeapTab()
+    {
+        heapPane = new ManagedPane { Name = "Heap", Data = data, Source = source };
+        tabs.AddChild(heapPane);
+        tabHeap = heapPane.GetIndex();
     }
 
     private void BuildTreeTab()
@@ -268,6 +289,7 @@ public partial class ProfilerOverlay : CanvasLayer
         split.AddChild(treePane);
         split.AddChild(inspector);
         tabs.AddChild(split);
+        tabTree = split.GetIndex();
         data.TreeReceived += payload => treePane.ApplyPayload(payload);
         data.ObjectReceived += payload => inspector.SetPayload(payload);
         data.AblationReceived += ShowAblation;
@@ -278,10 +300,11 @@ public partial class ProfilerOverlay : CanvasLayer
         censusPane = new CensusPane { Name = "Objects", Data = data, Source = source };
         censusPane.Navigate = id =>
         {
-            tabs.CurrentTab = 3;
+            tabs.CurrentTab = tabTree;
             inspector.Navigate(id);
         };
         tabs.AddChild(censusPane);
+        tabObjects = censusPane.GetIndex();
         data.InstancesReceived += () => censusPane.RefreshInstances();
         data.SignalsReceived += () => signalPane.Refresh();
         data.CensusReceived += () => censusPane.Refresh();
@@ -292,10 +315,11 @@ public partial class ProfilerOverlay : CanvasLayer
         resourcePane = new ResourcePane { Name = "Resources", Data = data, Source = source };
         resourcePane.Navigate = id =>
         {
-            tabs.CurrentTab = 3;
+            tabs.CurrentTab = tabTree;
             inspector.Navigate(id);
         };
         tabs.AddChild(resourcePane);
+        tabResources = resourcePane.GetIndex();
     }
 
     private void BuildSignalsTab()
@@ -303,10 +327,11 @@ public partial class ProfilerOverlay : CanvasLayer
         signalPane = new SignalPane { Name = "Signals", Data = data, Source = source };
         signalPane.Navigate = id =>
         {
-            tabs.CurrentTab = 3;
+            tabs.CurrentTab = tabTree;
             inspector.Navigate(id);
         };
         tabs.AddChild(signalPane);
+        tabSignals = signalPane.GetIndex();
     }
 
     private void BuildEventsTab()
@@ -318,6 +343,7 @@ public partial class ProfilerOverlay : CanvasLayer
             graph.QueueRedraw();
         };
         tabs.AddChild(eventPane);
+        tabEvents = eventPane.GetIndex();
     }
 
     private static string HintText()
@@ -344,7 +370,7 @@ public partial class ProfilerOverlay : CanvasLayer
         if (id == 0)
             return;
         SetOverlayVisible(true);
-        tabs.CurrentTab = 3;
+        tabs.CurrentTab = tabTree;
         inspector.Navigate(id);
         treePane.SelectObject(id);
         highlight?.Add(id, 3f);
@@ -420,42 +446,51 @@ public partial class ProfilerOverlay : CanvasLayer
         if (runtime == null)
             return;
         SyncScopes(runtime);
-        switch (tabs.CurrentTab)
+        int tab = tabs.CurrentTab;
+        if (tab == tabStats)
         {
-            case 0:
-                RefreshStats();
-                break;
-            case 1:
-                graph.QueueRedraw();
-                break;
-            case 2:
-                scopePane.Refresh();
-                break;
-            case 3:
-                if (force)
-                    treePane.RequestRoot();
-                break;
-            case 4:
-            case 5:
-                if (force)
-                {
-                    if (!data.Census.ContainsKey("classes"))
-                        source.RequestCensus();
-                    censusPane.Refresh();
-                    resourcePane.Refresh();
-                }
-                break;
-            case 6:
-                if (force)
-                {
-                    if (data.Signals.Count == 0)
-                        source.RequestSignals();
-                    signalPane.Refresh();
-                }
-                break;
-            case 7:
-                eventPane.Refresh();
-                break;
+            RefreshStats();
+        }
+        else if (tab == tabGraph)
+        {
+            graph.QueueRedraw();
+        }
+        else if (tab == tabScopes)
+        {
+            scopePane.Refresh();
+        }
+        else if (tab == tabHeap)
+        {
+            data.Heap = ProfilerRuntime.Instance != null ? ProfilerRuntime.Instance.HeapSnapshot(80) : data.Heap;
+            heapPane.Refresh();
+        }
+        else if (tab == tabTree)
+        {
+            if (force)
+                treePane.RequestRoot();
+        }
+        else if (tab == tabObjects || tab == tabResources)
+        {
+            if (force)
+            {
+                if (!data.Census.ContainsKey("classes"))
+                    source.RequestCensus();
+                censusPane.Refresh();
+                resourcePane.Refresh();
+            }
+        }
+        else if (tab == tabSignals)
+        {
+            if (force)
+            {
+                if (data.Signals.Count == 0)
+                    source.RequestSignals();
+                signalPane.Refresh();
+            }
+        }
+        else if (tab == tabEvents)
+        {
+            eventPane.Refresh();
         }
     }
 
