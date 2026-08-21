@@ -134,7 +134,7 @@ public partial class SceneTreePane : VBoxContainer
         ulong id = payload["id"].AsUInt64();
         pending.Remove(id);
         TreeItem parentItem;
-        if (items.TryGetValue(id, out TreeItem existing))
+        if (items.TryGetValue(id, out TreeItem existing) && Alive(existing))
         {
             parentItem = existing;
             ClearChildren(parentItem);
@@ -195,7 +195,7 @@ public partial class SceneTreePane : VBoxContainer
         }
         status.Text = items.Count + " nodes loaded";
         ApplyFilter();
-        if (selectedId != 0 && items.TryGetValue(selectedId, out TreeItem restore))
+        if (selectedId != 0 && items.TryGetValue(selectedId, out TreeItem restore) && Alive(restore))
             restore.SetCustomBgColor(0, new Color(0.35f, 0.45f, 0.75f, 0.35f));
     }
 
@@ -205,13 +205,35 @@ public partial class SceneTreePane : VBoxContainer
         while (child != null)
         {
             TreeItem next = child.GetNext();
-            ulong childId = MetaId(child);
-            if (childId != 0)
-                items.Remove(childId);
+            Forget(child);
             item.RemoveChild(child);
             child.Free();
             child = next;
         }
+    }
+
+    private void Forget(TreeItem item)
+    {
+        if (!Alive(item))
+            return;
+        ulong id = MetaId(item);
+        if (id != 0)
+        {
+            items.Remove(id);
+            loaded.Remove(id);
+            pending.Remove(id);
+        }
+        TreeItem child = item.GetFirstChild();
+        while (child != null)
+        {
+            Forget(child);
+            child = child.GetNext();
+        }
+    }
+
+    private static bool Alive(TreeItem item)
+    {
+        return GodotObject.IsInstanceValid(item);
     }
 
     private void FillRow(TreeItem item, ulong id, string name, string className, int childCount, int descendants, long bytes, int flags, bool partial, bool hasScript)
@@ -255,6 +277,8 @@ public partial class SceneTreePane : VBoxContainer
 
     private static ulong MetaId(TreeItem item)
     {
+        if (!Alive(item))
+            return 0UL;
         Variant meta = item.GetMetadata(0);
         return meta.VariantType == Variant.Type.Int ? meta.AsUInt64() : 0UL;
     }
@@ -262,7 +286,7 @@ public partial class SceneTreePane : VBoxContainer
     private void OnItemSelected()
     {
         TreeItem item = tree.GetSelected();
-        if (item == null)
+        if (!Alive(item))
             return;
         ulong id = MetaId(item);
         if (id == 0)
@@ -275,7 +299,7 @@ public partial class SceneTreePane : VBoxContainer
     private void OnItemActivated()
     {
         TreeItem item = tree.GetSelected();
-        if (item == null)
+        if (!Alive(item))
             return;
         ulong id = MetaId(item);
         if (id == 0)
@@ -290,7 +314,7 @@ public partial class SceneTreePane : VBoxContainer
 
     private void OnItemCollapsed(TreeItem item)
     {
-        if (item == null || item.Collapsed)
+        if (!Alive(item) || item.Collapsed)
             return;
         ulong id = MetaId(item);
         if (id == 0 || loaded.Contains(id) || pending.Contains(id))
@@ -303,7 +327,7 @@ public partial class SceneTreePane : VBoxContainer
     {
         foreach (KeyValuePair<ulong, TreeItem> pair in items)
         {
-            if (pair.Key != rootId && pair.Value != null)
+            if (pair.Key != rootId && Alive(pair.Value))
                 pair.Value.Collapsed = true;
         }
     }
@@ -315,7 +339,7 @@ public partial class SceneTreePane : VBoxContainer
         foreach (KeyValuePair<ulong, TreeItem> pair in items)
         {
             TreeItem item = pair.Value;
-            if (item == null)
+            if (!Alive(item))
                 continue;
             bool match = empty
                          || item.GetText(0).Contains(needle, StringComparison.OrdinalIgnoreCase)
@@ -335,7 +359,7 @@ public partial class SceneTreePane : VBoxContainer
 
     public void SelectObject(ulong id)
     {
-        if (!items.TryGetValue(id, out TreeItem item) || item == null)
+        if (!items.TryGetValue(id, out TreeItem item) || !Alive(item))
             return;
         TreeItem parent = item.GetParent();
         while (parent != null)
