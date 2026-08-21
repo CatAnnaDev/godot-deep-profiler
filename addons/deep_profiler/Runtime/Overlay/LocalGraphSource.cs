@@ -25,30 +25,34 @@ public sealed class LocalGraphSource : IGraphSource
         return root != null ? root.GetInstanceId() : 0UL;
     }
 
+    private static void Defer(Action action)
+    {
+        Callable.From(action).CallDeferred();
+    }
+
     public void RequestTree(ulong id, int offset, int limit)
     {
-        if (id == 0)
-            id = RootId();
-        data.ApplyTree(ObjectGraph.Describe(id, false, false, offset, limit, 60000));
+        ulong target = id == 0 ? RootId() : id;
+        Defer(() => data.ApplyTree(ObjectGraph.Describe(target, false, false, offset, limit, 60000)));
     }
 
     public void RequestObject(ulong id)
     {
-        data.ApplyObject(ObjectGraph.Describe(id, true, true, 0, 200, 60000));
+        Defer(() => data.ApplyObject(ObjectGraph.Describe(id, true, true, 0, 200, 60000)));
     }
 
     public void RequestCensus()
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;
         int budget = runtime?.CrawlBudget ?? 40000;
-        data.ApplyCensus(ObjectGraph.Crawl(budget, 4000, 0));
+        Defer(() => data.ApplyCensus(ObjectGraph.Crawl(budget, 4000, 0)));
     }
 
     public void RequestSignals()
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;
         int budget = runtime?.CrawlBudget ?? 40000;
-        data.ApplySignals(ObjectGraph.SignalGraph(budget, 6000));
+        Defer(() => data.ApplySignals(ObjectGraph.SignalGraph(budget, 6000)));
     }
 
     public void ResetHeap()
@@ -75,7 +79,7 @@ public sealed class LocalGraphSource : IGraphSource
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;
         int budget = runtime?.CrawlBudget ?? 40000;
-        data.ApplyInstances(className, ObjectGraph.Instances(className, 500, budget));
+        Defer(() => data.ApplyInstances(className, ObjectGraph.Instances(className, 500, budget)));
     }
 
     public void RequestAblate(ulong id, int frames)

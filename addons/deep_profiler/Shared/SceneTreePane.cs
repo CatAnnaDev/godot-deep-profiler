@@ -146,6 +146,8 @@ public partial class SceneTreePane : VBoxContainer
             loaded.Clear();
             rootId = id;
             parentItem = tree.CreateItem();
+            if (parentItem == null)
+                return;
             int subtree = payload.TryGetValue("sub_nodes", out Variant sub) ? sub.AsInt32() - 1 : 0;
             long retained = payload.TryGetValue("retained", out Variant retainedValue) ? retainedValue.AsInt64() : 0;
             int rootFlags = payload.TryGetValue("flags", out Variant flagsValue) ? flagsValue.AsInt32() : 0;
@@ -163,6 +165,8 @@ public partial class SceneTreePane : VBoxContainer
             GDDict child = entry.AsGodotDictionary();
             ulong childId = child["id"].AsUInt64();
             TreeItem item = tree.CreateItem(parentItem);
+            if (item == null)
+                break;
             FillRow(item, childId, child["name"].AsString(), child["class"].AsString(),
                 child["children"].AsInt32(), child["desc"].AsInt32(), child["bytes"].AsInt64(),
                 child["flags"].AsInt32(), child["partial"].AsBool(), child["script"].AsBool());
@@ -170,6 +174,8 @@ public partial class SceneTreePane : VBoxContainer
             if (child["children"].AsInt32() > 0)
             {
                 TreeItem placeholder = tree.CreateItem(item);
+                if (placeholder == null)
+                    break;
                 placeholder.SetText(0, "loading");
                 placeholder.SetSelectable(0, false);
                 placeholder.SetCustomColor(0, DimColor);
@@ -180,9 +186,9 @@ public partial class SceneTreePane : VBoxContainer
 
         int shown = children.Count;
         int total = payload["child_count"].AsInt32();
-        if (shown < total)
+        TreeItem more = shown < total ? tree.CreateItem(parentItem) : null;
+        if (more != null)
         {
-            TreeItem more = tree.CreateItem(parentItem);
             more.SetText(0, "... " + (total - shown) + " more children");
             more.SetMetadata(0, id);
             more.SetCustomColor(0, DimColor);
@@ -210,6 +216,8 @@ public partial class SceneTreePane : VBoxContainer
 
     private void FillRow(TreeItem item, ulong id, string name, string className, int childCount, int descendants, long bytes, int flags, bool partial, bool hasScript)
     {
+        if (item == null)
+            return;
         item.SetText(0, name);
         item.SetText(1, className);
         item.SetText(2, childCount > 0 ? childCount.ToString() : string.Empty);

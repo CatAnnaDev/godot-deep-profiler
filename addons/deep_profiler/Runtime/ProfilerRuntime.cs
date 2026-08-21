@@ -99,6 +99,7 @@ public partial class ProfilerRuntime : Node
     {
         Instance = this;
         Name = "DeepProf";
+        Prof.MainManagedThreadId = System.Environment.CurrentManagedThreadId;
         ObjectGraph.ExcludedRoot = GetInstanceId();
         ProcessMode = ProcessModeEnum.Always;
         ProcessPriority = int.MinValue;

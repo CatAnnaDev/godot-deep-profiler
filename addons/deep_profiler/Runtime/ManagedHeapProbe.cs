@@ -67,6 +67,18 @@ public sealed class ManagedHeapProbe : EventListener
 
     protected override void OnEventWritten(EventWrittenEventArgs data)
     {
+        try
+        {
+            Accumulate(data);
+        }
+        catch (Exception)
+        {
+            Available = false;
+        }
+    }
+
+    private void Accumulate(EventWrittenEventArgs data)
+    {
         if (!enabled || data.EventId != EventAllocationTick)
             return;
         string typeName = null;
