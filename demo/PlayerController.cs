@@ -61,7 +61,7 @@ public partial class PlayerController : CharacterBody3D
         gravity = (float)ProjectSettings.GetSetting("physics/3d/default_gravity", 9.8f);
     }
 
-    public override void _UnhandledInput(InputEvent @event)
+    public override void _Input(InputEvent @event)
     {
         using ProfScope scope = Prof.Scope("Player.Input");
         if (@event is InputEventMouseMotion motion && mouseCaptured)
@@ -69,6 +69,7 @@ public partial class PlayerController : CharacterBody3D
             RotateY(-motion.Relative.X * MouseSensitivity);
             pitch = Mathf.Clamp(pitch - motion.Relative.Y * MouseSensitivity, -1.45f, 1.45f);
             pivot.Rotation = new Vector3(pitch, 0f, 0f);
+            GetViewport().SetInputAsHandled();
             return;
         }
         if (@event is InputEventKey key && key.Pressed && !key.Echo)

@@ -73,6 +73,11 @@ public sealed class LocalGraphSource : IGraphSource
             runtime.TrackInput = enabled;
     }
 
+    public void SetAccumulateInput(bool enabled)
+    {
+        Input.UseAccumulatedInput = enabled;
+    }
+
     public void SetAutoCrawl(bool enabled, double interval, bool light)
     {
         ProfilerRuntime runtime = ProfilerRuntime.Instance;

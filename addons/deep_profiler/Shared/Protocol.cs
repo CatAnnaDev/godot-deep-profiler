@@ -45,6 +45,7 @@ public static class Protocol
     public const string CmdAutoCrawl = "autocrawl";
     public const string CmdTrackObjects = "trackobjects";
     public const string CmdTrackInput = "trackinput";
+    public const string CmdAccumulateInput = "accumulateinput";
 
     public const int WatchSlots = 8;
 

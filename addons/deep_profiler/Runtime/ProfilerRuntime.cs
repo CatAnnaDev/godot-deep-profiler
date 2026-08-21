@@ -725,6 +725,9 @@ public partial class ProfilerRuntime : Node
             case Protocol.CmdTrackInput:
                 TrackInput = data[1].AsBool();
                 break;
+            case Protocol.CmdAccumulateInput:
+                Input.UseAccumulatedInput = data[1].AsBool();
+                break;
             case Protocol.CmdTree:
             {
                 ulong id = data[1].AsUInt64();
